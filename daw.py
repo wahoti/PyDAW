@@ -57,6 +57,11 @@ class Tcompose:
 	def __init__(self):
 		self.name = 'compose'
 		
+		self.start_bar = 0
+		self.end_bar = 0
+		self.star_64 = 0
+		self.end_64 = 0
+		
 		self.threads = []
 		
 		self.comp = Composition()
@@ -105,6 +110,8 @@ class Tcompose:
 			self.record = not self.record
 		elif button in [0,1,2,3]:
 			self.play_sound_thread(self.sound_sets[self.sound_set_index][button])
+			self.start_bar = self.comp.bar
+			self.start_64 = self.comp._64
 			if self.record: self.comp.add_sound(self.sound_sets[self.sound_set_index][button], self.comp.bar, self.comp._64)
 		elif button is 4:
 			self.prev_sound_set()
@@ -115,6 +122,25 @@ class Tcompose:
 			if self.record: self.comp.add_sound(self.sound_sets[self.sound_set_index][button], self.comp.bar, self.comp._64)
 			
 	def button_release(self, button):
+		#put record here
+		#TRIM it to corresponding time --- how?
+		self.end_bar = self.comp.bar
+		self.end_64 = self.comp._64
+		#calculate difference?
+		print self.start_bar, self.end_bar
+		print self.start_64, self.end_64
+		# if self.record: self.comp.add_sound(self.sound_sets[self.sound_set_index][button], self.start_bar, self.start_64)
+		
+		#AUDIO SEGMENT
+		#can get raw data from audio segment - apply filter - plug into winsound
+		#try this out in the lab and time it
+		#new_sound = sound._spawn(shifted_samples_array)
+		#FILE NAVIGATION
+		
+		#use same time function from lab to get a start and end time ?
+		#if can get a second value for duration is it possible to trim the wav file to that length?
+		#using something like samplewidth, number of samples
+		
 		winsound.PlaySound(None, winsound.SND_PURGE)
 		return 0
 		
