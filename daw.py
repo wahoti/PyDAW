@@ -13,6 +13,8 @@ import time
 
 import random
 
+import winsound
+
 #bpm
 #time measure
 #The lower numeral indicates the note value that represents one beat (the beat unit).
@@ -34,7 +36,124 @@ def new_bar(tSig):
 	_64s_in_beat = 64 / tSig[1]
 	_64s_in_bar = _beats_in_bar * _64s_in_beat
 	bar = [[] for _ in range(_64s_in_bar)]
-	return bar
+	return bar	
+	
+	
+class T_:
+	def __init__(self):
+		self.name = '_'
+	def display(self):
+		textPrint.log(screen, "_")
+	def button_down(self, button):
+		print '_ button down'
+	def button_release(self, button):
+		print '_ button release'
+		
+class Tcompose:
+	def __init__(self):
+		self.name = 'compose'
+		
+		self.comp = Composition()
+		
+		self.record = False
+		
+		self.sound_sets = [
+			['jump.wav', 'kick.wav', 'land.wav', 'fireball.wav'],
+			['spin.wav', 'stomp.wav', 'warp.wav', 'yoshi.wav']
+		]
+		
+		self.sound_set_index = 0
+		
+	def display(self):
+		textPrint.log(screen, "bar: {}".format(self.comp.bar) )	
+		textPrint.log(screen, "beat: {}".format(self.comp._64) )	
+		textPrint.log(screen, "record: {}".format(self.record) )	
+		textPrint.log(screen, "sound_set: {}".format(self.sound_sets[self.sound_set_index]) )	
+	
+	def next_sound_set(self):
+		if (self.sound_set_index + 1)  >= len(self.sound_sets):
+			self.sound_set_index = 0
+		else:
+			self.sound_set_index += 1
+	
+	def prev_sound_set(self):
+		if (self.sound_set_index - 1)  < 0:
+			self.sound_set_index = len(self.sound_sets)-1
+		else:
+			self.sound_set_index -= 1
+	
+	def button_down(self, button):
+		if button is 9:
+			self.record = not self.record
+		elif button in [0,1,2,3]:
+			play_sound_thread(self.sound_sets[self.sound_set_index][button])
+			if self.record: self.comp.add_sound(button_map[button], self.comp.bar, self.comp._64)
+		elif button is 4:
+			self.prev_sound_set()
+		elif button is 5:
+			self.next_sound_set()
+		else:
+			play_sound_thread(button_map[button])
+			if self.record: self.comp.add_sound(button_map[button], self.comp.bar, self.comp._64)
+			
+	def button_release(self, button):
+		return 0
+		
+class Tcut:
+	def __init__(self):
+		self.name = 'cut'
+	def display(self):
+		textPrint.log(screen, "cut")
+	def button_down(self, button):
+		print 'cut button down'
+	def button_release(self, button):
+		print 'cut button release'	
+		
+class Tsynth:
+	def __init__(self):
+		self.name = 'synth'
+
+	def display(self):
+		textPrint.log(screen, "synth")
+	def button_down(self, button):
+		# winsound.Beep(1500, 100)
+		winsound.PlaySound('sounds\\bird.wav', winsound.SND_FILENAME)
+		
+		
+		return 0
+	def button_release(self, button):
+		return 0
+
+class Controller:
+	def __init__(self):
+		self.modes = ['compose', 'cut', 'synth']
+		self.mode_handlers = [Tcompose(), Tcut(), Tsynth()]
+		self.mode_index = 0
+		self.mode = self.modes[self.mode_index]
+		#MODES: 'compose', 'cut', 
+		#settings for individual tools?
+		#mode controls the button layout and functionality
+		
+	def next_mode(self):
+		new_index = self.mode_index + 1
+		if new_index >= len(self.modes):
+			self.mode_index = 0
+			self.mode = self.modes[0]
+		else:
+			self.mode_index = new_index
+			self.mode = self.modes[new_index]
+		print self.mode
+		
+	def button_down(self, button):
+		if button is 12:
+			self.next_mode()
+		else:
+			self.mode_handlers[self.mode_index].button_down(button)
+			
+	def button_release(self, button):
+		self.mode_handlers[self.mode_index].button_release(button)
+	
+		
 	
 class Composition:
 	def __init__(self):
@@ -45,16 +164,17 @@ class Composition:
 		self.bar = 0
 		self._64 = 0
 		self.add_bar()
-		self.add_bar()
-		self.add_bar()
-		self.add_bar()
 		self.get_len64()
+		# self.test()
+		self.loop = True
+		self.start_loop()
+		
+	def test(self):	
 		self.add_sound('coin.wav', 0, 0)
 		self.add_sound('coin.wav', 0, 15)
 		self.add_sound('coin.wav', 0, 31)
 		self.add_sound('coin.wav', 0, 46)
-		self.start_loop()
-		
+	
 	def add_sound(self, name, bar, _64s):
 		self.comp[bar][_64s].append(name)
 		
@@ -65,14 +185,15 @@ class Composition:
 		del self.comp[-1]
 		
 	def start_loop(self):
-		t = threading.Thread(target=self.loop)
+		self.loop = True
+		t = threading.Thread(target=self.loop_thread)
 		self.threads.append(t)
 		t.start()
 		
-	def loop(self):
+	def loop_thread(self):
 		bars = range(len(self.comp))
 		beats = range(len(self.comp[0]))
-		for i in range(100):
+		while self.loop:
 			for bar in bars:
 				self.bar = bar
 				for beat in beats:
@@ -85,7 +206,7 @@ class Composition:
 		
 		
 	def stop_loop(self):
-		print '??'
+		self.loop = False
 		
 	def get_len64(self):
 		ms_beat = 60000.0 / self.bpm
@@ -131,16 +252,18 @@ def play_sound_thread(name):
 def process_button_down(event):
 	joy = event.joy
 	button = event.button
-
+	print event.button
 	
-	comp.add_sound(button_map[button], comp.bar, comp._64)
-	play_sound_thread(button_map[button])
+	controller.button_down(event.button)
 	
 	return 0
 	
 def process_button_release(event):
 	joy = event.joy
 	button = event.button
+	
+	controller.button_release(event.button)
+	
 	return 0
 	
 def process_joystick(joystick):
@@ -205,8 +328,8 @@ def main():
 			joystick = pygame.joystick.Joystick(i)
 			process_joystick(joystick)
 			
-		textPrint.log(screen, "bar: {}".format(comp.bar) )	
-		textPrint.log(screen, "beat: {}".format(comp._64) )	
+		textPrint.log(screen, "mode: {}".format(controller.mode) )	
+		controller.mode_handlers[controller.mode_index].display()
 			
 		pygame.display.flip()
 		# clock.tick(20)
@@ -252,6 +375,6 @@ if __name__ == "__main__":
 	
 	button_map = get_random_button_map()
 	
-	comp = Composition()
+	controller = Controller()
 	
 	main()
