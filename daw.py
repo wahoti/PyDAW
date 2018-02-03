@@ -15,6 +15,10 @@ import random
 
 import winsound
 
+import math        #import needed modules
+import pyaudio     #sudo apt-get install python-pyaudio
+PyAudio = pyaudio.PyAudio     #initialize pyaudio
+
 #bpm
 #time measure
 #The lower numeral indicates the note value that represents one beat (the beat unit).
@@ -53,6 +57,8 @@ class Tcompose:
 	def __init__(self):
 		self.name = 'compose'
 		
+		self.threads = []
+		
 		self.comp = Composition()
 		
 		self.record = False
@@ -82,46 +88,124 @@ class Tcompose:
 		else:
 			self.sound_set_index -= 1
 	
+	def play_sound(self, sound):
+		# winsound.PlaySound(r'C:\Users\wahed\Desktop\daw\pydaw\sounds\dragon_coin.wav', winsound.SND_ASYNC)
+		winsound.PlaySound("C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\" + sound, winsound.SND_ASYNC)
+		return 0
+	
+	def play_sound_thread(self, sound):
+		t = threading.Thread(target=self.play_sound, args=[sound])
+		self.threads.append(t)
+		t.start()
+		return 0
+	
+	
 	def button_down(self, button):
 		if button is 9:
 			self.record = not self.record
 		elif button in [0,1,2,3]:
-			play_sound_thread(self.sound_sets[self.sound_set_index][button])
-			if self.record: self.comp.add_sound(button_map[button], self.comp.bar, self.comp._64)
+			self.play_sound_thread(self.sound_sets[self.sound_set_index][button])
+			if self.record: self.comp.add_sound(self.sound_sets[self.sound_set_index][button], self.comp.bar, self.comp._64)
 		elif button is 4:
 			self.prev_sound_set()
 		elif button is 5:
 			self.next_sound_set()
 		else:
-			play_sound_thread(button_map[button])
-			if self.record: self.comp.add_sound(button_map[button], self.comp.bar, self.comp._64)
+			self.play_sound_thread(button_map[button])
+			if self.record: self.comp.add_sound(self.sound_sets[self.sound_set_index][button], self.comp.bar, self.comp._64)
 			
 	def button_release(self, button):
+		winsound.PlaySound(None, winsound.SND_PURGE)
 		return 0
 		
 class Tcut:
 	def __init__(self):
 		self.name = 'cut'
+		
 	def display(self):
 		textPrint.log(screen, "cut")
 	def button_down(self, button):
-		print 'cut button down'
+		return 0
 	def button_release(self, button):
-		print 'cut button release'	
+		return 0
 		
 class Tsynth:
 	def __init__(self):
 		self.name = 'synth'
-
+		
+		self.stop = False
+		
+		self.threads = []
+		
+		self.wavs = []
+		
+		self.sounds = [
+			[500, .1],
+			[500, .2],
+			[500, .3],
+			[500, .4]
+		]
+		self.bitrate = 16000
+		
+		self.generate_wav()
+		
+		p = PyAudio()
+		self.stream = p.open(format = p.get_format_from_width(1), 
+			channels = 1, 
+			rate = self.bitrate, 
+			output = True)
+		
+	def generate_wav(self):
+		self.wavs = []
+		for sound in self.sounds:
+			FREQUENCY = sound[0]
+			LENGTH = sound[1]
+			if FREQUENCY > self.bitrate:
+				# BITRATE = FREQUENCY+100#???
+				continue
+			NUMBEROFFRAMES = int(self.bitrate * LENGTH)
+			RESTFRAMES = NUMBEROFFRAMES % self.bitrate
+			WAVEDATA = ''    
+			for x in xrange(NUMBEROFFRAMES):
+				WAVEDATA = WAVEDATA+chr(int(math.sin(x/((self.bitrate/FREQUENCY)/math.pi))*127+128))    
+			for x in xrange(RESTFRAMES): 
+				WAVEDATA = WAVEDATA+chr(128)
+			self.wavs.append(WAVEDATA)
+		
 	def display(self):
 		textPrint.log(screen, "synth")
+
+	def synth_thread(self, wav):
+		# while not self.stop:
+			# self.stream.write(self.wavs[wav])
+		# self.stop = False
+		winsound.PlaySound(r'C:\Users\wahed\Desktop\daw\pydaw\sounds\dragon_coin.wav', winsound.SND_ASYNC)
+
 	def button_down(self, button):
 		# winsound.Beep(1500, 100)
-		winsound.PlaySound('sounds\\bird.wav', winsound.SND_FILENAME)
+		# winsound.PlaySound('sounds\\bird.wav', winsound.SND_FILENAME)
 		
+		butt = 0
+		if button is 0:
+			butt = 0
+		elif button is 1:
+			butt = 1
+		elif button is 2:
+			butt = 2
+		elif button is 3:
+			butt = 3
 		
+		t = threading.Thread(target=self.synth_thread, args=[butt])
+		self.threads.append(t)
+		t.start()
 		return 0
+		
 	def button_release(self, button):
+		print 'synth button release'
+		# winsound.PlaySound(r'C:\Users\wahed\Desktop\daw\pydaw\sounds\dragon_coin.wav', winsound.SND_ASYNC)
+		winsound.PlaySound(None, winsound.SND_PURGE)
+		# self.stop = True
+	
 		return 0
 
 class Controller:
@@ -134,7 +218,13 @@ class Controller:
 		#settings for individual tools?
 		#mode controls the button layout and functionality
 		
+		self.hats = []
+		self.buttons = []
+		self.axis = []
+		
 	def next_mode(self):
+		
+	
 		new_index = self.mode_index + 1
 		if new_index >= len(self.modes):
 			self.mode_index = 0
@@ -144,6 +234,7 @@ class Controller:
 			self.mode = self.modes[new_index]
 		print self.mode
 		
+		
 	def button_down(self, button):
 		if button is 12:
 			self.next_mode()
@@ -151,7 +242,8 @@ class Controller:
 			self.mode_handlers[self.mode_index].button_down(button)
 			
 	def button_release(self, button):
-		self.mode_handlers[self.mode_index].button_release(button)
+		if button is not 12:
+			self.mode_handlers[self.mode_index].button_release(button)
 	
 		
 	
