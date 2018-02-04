@@ -19,6 +19,10 @@ import math        #import needed modules
 import pyaudio     #sudo apt-get install python-pyaudio
 PyAudio = pyaudio.PyAudio     #initialize pyaudio
 
+import numpy as np
+
+import array
+
 #bpm
 #time measure
 #The lower numeral indicates the note value that represents one beat (the beat unit).
@@ -56,10 +60,13 @@ class T_:
 class Tcompose:
 	def __init__(self):
 		self.name = 'compose'
+		self.filter_count = 0
+		self.Lfilter = self.test_filter
+		self.Rfilter = self.test_filter
 		
 		self.start_bar = 0
 		self.end_bar = 0
-		self.star_64 = 0
+		self.start_64 = 0
 		self.end_64 = 0
 		
 		self.threads = []
@@ -68,12 +75,37 @@ class Tcompose:
 		
 		self.record = False
 		
+		self.sounds_path = "C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\"
+		
 		self.sound_sets = [
 			['jump.wav', 'kick.wav', 'land.wav', 'fireball.wav'],
 			['spin.wav', 'stomp.wav', 'warp.wav', 'yoshi.wav']
 		]
 		
+		self.init_audio_segments()
+		self.init_audio_samples()
+	
+		#store audio segments
+		
 		self.sound_set_index = 0
+	
+	def init_audio_segments(self):
+		self.audio_segments = []
+		for set in self.sound_sets:
+			new_set = []
+			for sound in set:
+				new_set.append(AudioSegment.from_file(self.sounds_path + sound, format="wav"))
+			self.audio_segments.append(new_set)
+
+		
+	def init_audio_samples(self):
+		self.audio_samples = []
+		for set in self.audio_segments:
+			new_set = []
+			for sound in set:
+				new_set.append(sound.get_array_of_samples())
+			self.audio_samples.append(new_set)
+		
 		
 	def display(self):
 		textPrint.log(screen, "bar: {}".format(self.comp.bar) )	
@@ -93,33 +125,66 @@ class Tcompose:
 		else:
 			self.sound_set_index -= 1
 	
-	def play_sound(self, sound):
-		# winsound.PlaySound(r'C:\Users\wahed\Desktop\daw\pydaw\sounds\dragon_coin.wav', winsound.SND_ASYNC)
-		winsound.PlaySound("C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\" + sound, winsound.SND_ASYNC)
+	def play_sound_pydub(self, segment):
+		# play(segment)
+		winsound.PlaySound(self.sounds_path + sound, winsound.SND_ASYNC)
 		return 0
 	
-	def play_sound_thread(self, sound):
-		t = threading.Thread(target=self.play_sound, args=[sound])
+	def play_sound_winsound(self, sound):
+		# winsound.PlaySound(r'C:\Users\wahed\Desktop\daw\pydaw\sounds\dragon_coin.wav', winsound.SND_ASYNC)
+		winsound.PlaySound(self.sounds_path + sound, winsound.SND_ASYNC)
+		return 0
+	
+	def play_sound_thread(self, segment):
+		t = threading.Thread(target=self.play_sound_pydub, args=[segment])
+		# t = threading.Thread(target=self.play_sound_winsound, args=[sound])
 		self.threads.append(t)
 		t.start()
 		return 0
 	
+	def test_filter(self, segment, sample):
+		shifted_samples = np.right_shift(sample, 1)
+		shifted_samples_array = array.array(segment.array_type, shifted_samples)
+		new_segment = segment._spawn(shifted_samples_array)
+		return new_segment
 	
 	def button_down(self, button):
 		if button is 9:
 			self.record = not self.record
 		elif button in [0,1,2,3]:
-			self.play_sound_thread(self.sound_sets[self.sound_set_index][button])
 			self.start_bar = self.comp.bar
 			self.start_64 = self.comp._64
-			if self.record: self.comp.add_sound(self.sound_sets[self.sound_set_index][button], self.comp.bar, self.comp._64)
+			name = self.sound_sets[self.sound_set_index][button]
+			segment = self.audio_segments[self.sound_set_index][button]
+			sample = self.audio_samples[self.sound_set_index][button]
+			filtered = False
+			if controller.buttons[6]:
+				filtered = True
+				segment = self.Lfilter(segment, sample)
+				sample = segment.get_array_of_samples()
+			if controller.buttons[7]:	
+				filtered = True
+				segment = self.Rfilter(segment, sample)
+				sample = segment.get_array_of_samples()
+			if self.record:
+				if filtered:
+					self.filter_count += 1
+					name = 'filter' + str(self.filter_count)
+					self.comp.new_sound(name, segment, sample)
+				self.comp.add_sound(name, self.comp.bar, self.comp._64)
+			self.play_sound_thread(segment)
+
 		elif button is 4:
 			self.prev_sound_set()
 		elif button is 5:
 			self.next_sound_set()
-		else:
-			self.play_sound_thread(button_map[button])
-			if self.record: self.comp.add_sound(self.sound_sets[self.sound_set_index][button], self.comp.bar, self.comp._64)
+		# elif button is 
+			#APPLY FILTER
+			#PLAY SONGS FROM MEMORY?????????
+			#store audio segments
+		# else:
+			# self.play_sound_thread(button_map[button])
+			# if self.record: self.comp.add_sound(self.sound_sets[self.sound_set_index][button], self.comp.bar, self.comp._64)
 			
 	def button_release(self, button):
 		#put record here
@@ -244,9 +309,16 @@ class Controller:
 		#settings for individual tools?
 		#mode controls the button layout and functionality
 		
+		self.num_buttons = 14
 		self.hats = []
-		self.buttons = []
+		self.buttons = {}
 		self.axis = []
+		self.init_buttons()
+		
+	def init_buttons(self):
+		for x in range(self.num_buttons):
+			#was down - is down
+			self.buttons[x] = False
 		
 	def next_mode(self):
 		
@@ -262,12 +334,16 @@ class Controller:
 		
 		
 	def button_down(self, button):
+		self.buttons[button] = True
+
 		if button is 12:
 			self.next_mode()
 		else:
 			self.mode_handlers[self.mode_index].button_down(button)
 			
 	def button_release(self, button):
+		self.buttons[button] = False
+	
 		if button is not 12:
 			self.mode_handlers[self.mode_index].button_release(button)
 	
@@ -283,15 +359,59 @@ class Composition:
 		self._64 = 0
 		self.add_bar()
 		self.get_len64()
-		# self.test()
+		
+		self.sounds_path = "C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\"
+		self.init_library()
+		self.init_audio_segments()
+		
+		# self.test()		
 		self.loop = True
 		self.start_loop()
 		
+	def init_library(self):
+		self.library = []		
+		for filename in os.listdir(self.sounds_path):
+			if filename.endswith(".wav"):
+				# print(os.path.join(path_to_sounds, filename))
+				self.library.append(filename)
+		
+	def init_audio_segments(self):
+		self.audio_segments = {}
+		self.audio_samples = {}
+		for sound in self.library:
+			#will this overload memory?
+			self.audio_segments[sound] = AudioSegment.from_file(self.sounds_path + sound, format="wav")
+			self.audio_samples[sound] = self.audio_segments[sound].get_array_of_samples()
+			
+	def new_sound(self, name, segment, sample):
+		if name in self.library:
+			return
+		
+		self.library.append(name)
+		self.audio_segments[name] = segment
+		self.audio_samples[name] = sample
+			
 	def test(self):	
 		self.add_sound('coin.wav', 0, 0)
 		self.add_sound('coin.wav', 0, 15)
 		self.add_sound('coin.wav', 0, 31)
 		self.add_sound('coin.wav', 0, 46)
+	
+	def play_sound_pydub(self, sound):
+		play(self.audio_segments[sound])
+		return 0
+	
+	def play_sound_winsound(self, sound):
+		# winsound.PlaySound(r'C:\Users\wahed\Desktop\daw\pydaw\sounds\dragon_coin.wav', winsound.SND_ASYNC)
+		winsound.PlaySound(self.sounds_path + sound, winsound.SND_ASYNC)
+		return 0
+	
+	def play_sound_thread(self, sound):
+		t = threading.Thread(target=self.play_sound_pydub, args=[sound])
+		# t = threading.Thread(target=self.play_sound_winsound, args=[sound])
+		self.threads.append(t)
+		t.start()
+		return 0
 	
 	def add_sound(self, name, bar, _64s):
 		self.comp[bar][_64s].append(name)
@@ -317,7 +437,7 @@ class Composition:
 				for beat in beats:
 					self._64 = beat
 					for sound in self.comp[bar][beat]:
-						if sound: play_sound_thread(sound)
+						if sound: self.play_sound_thread(sound)
 					#sleep for time of 1 64th note .... minus time of overhead????
 					time.sleep(self.len64_sleep)
 		return 0
