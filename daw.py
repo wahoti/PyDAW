@@ -125,9 +125,32 @@ class Tcompose:
 		else:
 			self.sound_set_index -= 1
 	
-	def play_sound_pydub(self, segment):
+	def make_chunks(self, audio_segment, chunk_length):
+		"""
+		Breaks an AudioSegment into chunks that are <chunk_length> milliseconds
+		long.
+		if chunk_length is 50 then you'll get a list of 50 millisecond long audio
+		segments back (except the last one, which can be shorter)
+		"""
+		number_of_chunks = math.ceil(len(audio_segment) / float(chunk_length))
+		return [audio_segment[i * chunk_length:(i + 1) * chunk_length]
+				for i in range(int(number_of_chunks))]
+	
+	def play_sound_pydub(self, seg, button):
+		p = pyaudio.PyAudio()
+		stream = p.open(format=p.get_format_from_width(seg.sample_width),
+			channels=seg.channels,
+			rate=seg.frame_rate,
+			output=True)
+
+		chunks = self.make_chunks(seg, 100)
+		
+		for x in range(len(chunks)):
+			if not controller.buttons[button]:
+				break
+			stream.write(chunks[x]._data)
+	
 		# play(segment)
-		winsound.PlaySound(self.sounds_path + sound, winsound.SND_ASYNC)
 		return 0
 	
 	def play_sound_winsound(self, sound):
@@ -135,8 +158,8 @@ class Tcompose:
 		winsound.PlaySound(self.sounds_path + sound, winsound.SND_ASYNC)
 		return 0
 	
-	def play_sound_thread(self, segment):
-		t = threading.Thread(target=self.play_sound_pydub, args=[segment])
+	def play_sound_thread(self, segment, button):
+		t = threading.Thread(target=self.play_sound_pydub, args=[segment, button])
 		# t = threading.Thread(target=self.play_sound_winsound, args=[sound])
 		self.threads.append(t)
 		t.start()
@@ -172,7 +195,7 @@ class Tcompose:
 					name = 'filter' + str(self.filter_count)
 					self.comp.new_sound(name, segment, sample)
 				self.comp.add_sound(name, self.comp.bar, self.comp._64)
-			self.play_sound_thread(segment)
+			self.play_sound_thread(segment, button)
 
 		elif button is 4:
 			self.prev_sound_set()

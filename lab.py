@@ -142,12 +142,55 @@ def raw():
 	play(sound)
 	play(new_sound)
 	
+def make_chunks(audio_segment, chunk_length):
+    """
+    Breaks an AudioSegment into chunks that are <chunk_length> milliseconds
+    long.
+    if chunk_length is 50 then you'll get a list of 50 millisecond long audio
+    segments back (except the last one, which can be shorter)
+    """
+    number_of_chunks = math.ceil(len(audio_segment) / float(chunk_length))
+    return [audio_segment[i * chunk_length:(i + 1) * chunk_length]
+            for i in range(int(number_of_chunks))]
+	
+def hm():
+	path = "C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\level_enter.wav"
+	sound = AudioSegment.from_file(path)
+	samples = sound.get_array_of_samples()
+	raw_audio_data = sound.raw_data
+	# winsound.PlaySound(raw_audio_data, winsound.SND_MEMORY)
+
+	seg = sound
+
+	p = pyaudio.PyAudio()
+	stream = p.open(format=p.get_format_from_width(seg.sample_width),
+		channels=seg.channels,
+		rate=seg.frame_rate,
+		output=True)
+
+	chunks = make_chunks(seg, 100)
+	print len(chunks)
+		
+		
+	# break audio into half-second chunks (to allows keyboard interrupts)
+	for x in range(len(chunks)):
+		if x == 5:
+			break
+		stream.write(chunks[x]._data)
+
+	stream.stop_stream()
+	stream.close()
+
+	p.terminate()
+	
+	
+	
 def main():
 	# sound1 = AudioSegment.from_file("C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\level_enter.wav", format="wav")
 	# play(sound1)
+	hm()
 	
-	
-	raw()
+	# raw()
 	# filter()
 	
 	
