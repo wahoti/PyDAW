@@ -61,13 +61,15 @@ class Tcompose:
 	def __init__(self):
 		self.name = 'compose'
 		self.filter_count = 0
+		self.cut_count = 0
 		self.Lfilter = self.test_filter
 		self.Rfilter = self.test_filter
 		
-		self.start_bar = 0
-		self.end_bar = 0
-		self.start_64 = 0
-		self.end_64 = 0
+		self.start_bars = [0,0,0,0]
+		self.start_64s = [0,0,0,0]
+		self.end_bars = [0,0,0,0]
+		self.end_64s = [0,0,0,0]
+		self.sound_stack = [0,0,0,0]
 		
 		self.threads = []
 		
@@ -77,53 +79,43 @@ class Tcompose:
 		
 		self.sounds_path = "C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\"
 		
-		self.sound_sets = [
-			['jump.wav', 'kick.wav', 'land.wav', 'fireball.wav'],
-			['spin.wav', 'stomp.wav', 'warp.wav', 'yoshi.wav']
-		]
-		
-		self.init_audio_segments()
-		self.init_audio_samples()
-	
-		#store audio segments
-		
-		self.sound_set_index = 0
-	
-	def init_audio_segments(self):
-		self.audio_segments = []
-		for set in self.sound_sets:
-			new_set = []
-			for sound in set:
-				new_set.append(AudioSegment.from_file(self.sounds_path + sound, format="wav"))
-			self.audio_segments.append(new_set)
-
-		
-	def init_audio_samples(self):
-		self.audio_samples = []
-		for set in self.audio_segments:
-			new_set = []
-			for sound in set:
-				new_set.append(sound.get_array_of_samples())
-			self.audio_samples.append(new_set)
-		
+		self.width = 3
+		self.height = 3
+		self.sound_sets = []
+		for x in range(self.width):
+			row = []
+			for y in range(self.height):
+				column = ['jump.wav', 'kick.wav', 'land.wav', 'fireball.wav']
+				row.append(column)
+			self.sound_sets.append(row)
+		self.sound_set_index = [1,1]
 		
 	def display(self):
 		textPrint.log(screen, "bar: {}".format(self.comp.bar) )	
 		textPrint.log(screen, "beat: {}".format(self.comp._64) )	
 		textPrint.log(screen, "record: {}".format(self.record) )	
-		textPrint.log(screen, "sound_set: {}".format(self.sound_sets[self.sound_set_index]) )	
-	
-	def next_sound_set(self):
-		if (self.sound_set_index + 1)  >= len(self.sound_sets):
-			self.sound_set_index = 0
+		textPrint.log(screen, "sound_set: {}".format(self.sound_sets[self.sound_set_index[0]][self.sound_set_index[1]]) )	
+
+	def sound_set_up(self):
+		if (self.sound_set_index[1] + 1) >= (self.height):
+			self.sound_set_index[1] = 0
 		else:
-			self.sound_set_index += 1
-	
-	def prev_sound_set(self):
-		if (self.sound_set_index - 1)  < 0:
-			self.sound_set_index = len(self.sound_sets)-1
+			self.sound_set_index[1] += 1
+	def sound_set_right(self):
+		if (self.sound_set_index[0] + 1) >= (self.width):
+			self.sound_set_index[0] = 0
 		else:
-			self.sound_set_index -= 1
+			self.sound_set_index[0] += 1
+	def sound_set_down(self):
+		if (self.sound_set_index[1] - 1) < 0:
+			self.sound_set_index[1] = self.height - 1
+		else:
+			self.sound_set_index[1] -= 1
+	def sound_set_left(self):
+		if (self.sound_set_index[0] - 1) < 0:
+			self.sound_set_index[0] = self.width - 1
+		else:
+			self.sound_set_index[0] -= 1
 	
 	def make_chunks(self, audio_segment, chunk_length):
 		"""
@@ -175,11 +167,12 @@ class Tcompose:
 		if button is 9:
 			self.record = not self.record
 		elif button in [0,1,2,3]:
-			self.start_bar = self.comp.bar
-			self.start_64 = self.comp._64
-			name = self.sound_sets[self.sound_set_index][button]
-			segment = self.audio_segments[self.sound_set_index][button]
-			sample = self.audio_samples[self.sound_set_index][button]
+			self.start_bars[button] = self.comp.bar
+			self.start_64s[button] = self.comp._64
+			name = self.sound_sets[self.sound_set_index[0]][self.sound_set_index[1]][button]
+			self.sound_stack[button] = name
+			segment = self.comp.audio_segments[name]
+			sample = self.comp.audio_samples[name]
 			filtered = False
 			if controller.buttons[6]:
 				filtered = True
@@ -194,29 +187,63 @@ class Tcompose:
 					self.filter_count += 1
 					name = 'filter' + str(self.filter_count)
 					self.comp.new_sound(name, segment, sample)
-				self.comp.add_sound(name, self.comp.bar, self.comp._64)
+					self.sound_stack[button] = name
+				print self.comp.bar, self.comp._64
+				# self.comp.add_sound(name, self.comp.bar, self.comp._64)
 			self.play_sound_thread(segment, button)
-
-		elif button is 4:
-			self.prev_sound_set()
-		elif button is 5:
-			self.next_sound_set()
-		# elif button is 
-			#APPLY FILTER
-			#PLAY SONGS FROM MEMORY?????????
-			#store audio segments
+		elif button is 14:
+			self.sound_set_left()
+		elif button is 15:
+			self.sound_set_right()
+		elif button is 16:
+			self.sound_set_down()
+		elif button is 17:
+			self.sound_set_up()
 		# else:
 			# self.play_sound_thread(button_map[button])
 			# if self.record: self.comp.add_sound(self.sound_sets[self.sound_set_index][button], self.comp.bar, self.comp._64)
 			
 	def button_release(self, button):
+		if button in [0,1,2,3]:
+			if self.record:
+				self.end_bars[button] = self.comp.bar
+				self.end_64s[button] = self.comp._64
+				diff_bar = self.end_bars[button] - self.start_bars[button]
+				diff_64s = self.end_64s[button] - self.start_64s[button]
+				
+				print self.start_bars[button], self.start_64s[button]
+				# self.end_bars[button] = self.comp.bar
+				# self.end_64s[button] = self.comp._64
+				
+				segment = self.comp.audio_segments[self.sound_stack[button]]
+				samples =  self.comp.audio_samples[self.sound_stack[button]]
+				print self.sound_stack[button]
+				
+				chunks = self.make_chunks(segment, 1)
+				
+				# new_segment = chunks[0]
+				# for chunk in chunks[1:]:
+					# new_segment = new_segment + chunk
+				
+				if diff_bar < 0:
+					self.comp.add_sound(self.sound_stack[button], self.start_bars[button], self.start_64s[button])
+				else:
+					num_64s = (diff_bar * 64) + diff_64s if diff_64s >= 0 else (diff_bar * 64) + (64 - abs(diff_64s))
+					print num_64s
+					index = self.comp.len64 * num_64s
+					new_segment = segment[:index]
+					
+					new_sample = new_segment.get_array_of_samples()
+					
+					self.cut_count += 1
+					name = 'cut' + str(self.cut_count)
+					self.comp.new_sound(name, new_segment, new_sample)		
+					self.comp.add_sound(name, self.start_bars[button], self.start_64s[button])
+					
+				
 		#put record here
 		#TRIM it to corresponding time --- how?
-		self.end_bar = self.comp.bar
-		self.end_64 = self.comp._64
 		#calculate difference?
-		print self.start_bar, self.end_bar
-		print self.start_64, self.end_64
 		# if self.record: self.comp.add_sound(self.sound_sets[self.sound_set_index][button], self.start_bar, self.start_64)
 		
 		#AUDIO SEGMENT
@@ -238,6 +265,22 @@ class Tcut:
 		
 	def display(self):
 		textPrint.log(screen, "cut")
+	def button_down(self, button):
+		return 0
+	def button_release(self, button):
+		return 0
+
+class Tsetsoundset:
+	def __init__(self):
+		self.name = 'setsoundset'
+		# self.sound_sets = numpy.zeros(shape=(3,3))
+		# print self.sound_sets
+		# self.sounds_path = "C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\"
+		# self.sounds = get_sound_library(self.sounds_path)
+		
+	def display(self):
+		textPrint.log(screen, "setsoundset")
+		
 	def button_down(self, button):
 		return 0
 	def button_release(self, button):
@@ -325,7 +368,7 @@ class Tsynth:
 class Controller:
 	def __init__(self):
 		self.modes = ['compose', 'cut', 'synth']
-		self.mode_handlers = [Tcompose(), Tcut(), Tsynth()]
+		self.mode_handlers = [Tcompose(), Tcut(), Tsynth(), Tsetsoundset()]
 		self.mode_index = 0
 		self.mode = self.modes[self.mode_index]
 		#MODES: 'compose', 'cut', 
@@ -333,7 +376,7 @@ class Controller:
 		#mode controls the button layout and functionality
 		
 		self.num_buttons = 14
-		self.hats = []
+		self.dpad = [0,0]
 		self.buttons = {}
 		self.axis = []
 		self.init_buttons()
@@ -357,6 +400,7 @@ class Controller:
 		
 		
 	def button_down(self, button):
+		print 'down', button
 		self.buttons[button] = True
 
 		if button is 12:
@@ -365,6 +409,7 @@ class Controller:
 			self.mode_handlers[self.mode_index].button_down(button)
 			
 	def button_release(self, button):
+		print 'release', button
 		self.buttons[button] = False
 	
 		if button is not 12:
@@ -561,9 +606,29 @@ def process_joystick(joystick):
 	textPrint.log(screen, "Number of hats: {}".format(hats) )
 	textPrint.indent()
 
+	#hats will be buttons 14-17
 	for i in range( hats ):
 		hat = joystick.get_hat( i )
 		textPrint.log(screen, "Hat {} value: {}".format(i, str(hat)) )
+		if (hat[0] is -1) and not (controller.dpad[0] is -1):
+			controller.button_down(14)
+		elif not (hat[0] is -1) and (controller.dpad[0] is -1):
+			controller.button_release(14)
+		if (hat[0] is 1)  and not (controller.dpad[0] is 1):
+			controller.button_down(15)
+		elif not (hat[0] is 1) and (controller.dpad[0] is 1):
+			controller.button_release(15)
+		if (hat[1] is -1)  and not (controller.dpad[1] is -1):
+			controller.button_down(16)
+		elif not (hat[1] is -1) and (controller.dpad[1] is -1):
+			controller.button_release(16)
+		if (hat[1] is 1)  and not (controller.dpad[1] is 1):
+			controller.button_down(17)
+		elif not (hat[1] is 1) and (controller.dpad[1] is 1):
+			controller.button_release(17)
+		controller.dpad[0] = hat[0]
+		controller.dpad[1] = hat[1]
+		
 	
 	textPrint.unindent()	
 	textPrint.unindent()
@@ -597,7 +662,7 @@ def main():
 	return 0
 
 def get_sound_library(path_to_sounds):
-	# returns a dictionary of sounds 
+	# returns a list of sounds 
 	# sounds are all WAV files in input folder
 	sounds_list = []
 	
