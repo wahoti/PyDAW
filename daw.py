@@ -23,6 +23,16 @@ import numpy as np
 
 import array
 
+import copy
+
+#whats next?
+#TCOMPOSE SUBMODES with share - will alter what dpad does - one mode for sound set navigation - one mode for bar manipulation
+#sound set setup
+#sound cut change? to save memory store length in ms or chunks instead of copying the segment data
+#add bar remove bar copy bar
+#more filters
+#cut tool
+
 #bpm
 #time measure
 #The lower numeral indicates the note value that represents one beat (the beat unit).
@@ -60,6 +70,8 @@ class T_:
 class Tcompose:
 	def __init__(self):
 		self.name = 'compose'
+		self.modes = ['nav', 'bar']
+		self.mode_index = 0
 		self.filter_count = 0
 		self.cut_count = 0
 		self.Lfilter = self.test_filter
@@ -91,31 +103,17 @@ class Tcompose:
 		self.sound_set_index = [1,1]
 		
 	def display(self):
+		textPrint.log(screen, "sub-mode: {}".format(self.modes[self.mode_index]) )	
 		textPrint.log(screen, "bar: {}".format(self.comp.bar) )	
 		textPrint.log(screen, "beat: {}".format(self.comp._64) )	
 		textPrint.log(screen, "record: {}".format(self.record) )	
-		textPrint.log(screen, "sound_set: {}".format(self.sound_sets[self.sound_set_index[0]][self.sound_set_index[1]]) )	
-
-	def sound_set_up(self):
-		if (self.sound_set_index[1] + 1) >= (self.height):
-			self.sound_set_index[1] = 0
+		textPrint.log(screen, "sound_set: {}".format(controller.sound_sets[controller.sound_set_index[0]][controller.sound_set_index[1]]) )	
+	
+	def next_mode(self):
+		if (self.mode_index + 1) >= len(self.modes):
+			self.mode_index = 0
 		else:
-			self.sound_set_index[1] += 1
-	def sound_set_right(self):
-		if (self.sound_set_index[0] + 1) >= (self.width):
-			self.sound_set_index[0] = 0
-		else:
-			self.sound_set_index[0] += 1
-	def sound_set_down(self):
-		if (self.sound_set_index[1] - 1) < 0:
-			self.sound_set_index[1] = self.height - 1
-		else:
-			self.sound_set_index[1] -= 1
-	def sound_set_left(self):
-		if (self.sound_set_index[0] - 1) < 0:
-			self.sound_set_index[0] = self.width - 1
-		else:
-			self.sound_set_index[0] -= 1
+			self.mode_index += 1
 	
 	def make_chunks(self, audio_segment, chunk_length):
 		"""
@@ -164,12 +162,14 @@ class Tcompose:
 		return new_segment
 	
 	def button_down(self, button):
+		if button is 8:
+			self.next_mode()
 		if button is 9:
 			self.record = not self.record
 		elif button in [0,1,2,3]:
 			self.start_bars[button] = self.comp.bar
 			self.start_64s[button] = self.comp._64
-			name = self.sound_sets[self.sound_set_index[0]][self.sound_set_index[1]][button]
+			name = controller.sound_sets[controller.sound_set_index[0]][controller.sound_set_index[1]][button]
 			self.sound_stack[button] = name
 			segment = self.comp.audio_segments[name]
 			sample = self.comp.audio_samples[name]
@@ -191,14 +191,25 @@ class Tcompose:
 				print self.comp.bar, self.comp._64
 				# self.comp.add_sound(name, self.comp.bar, self.comp._64)
 			self.play_sound_thread(segment, button)
-		elif button is 14:
-			self.sound_set_left()
-		elif button is 15:
-			self.sound_set_right()
-		elif button is 16:
-			self.sound_set_down()
-		elif button is 17:
-			self.sound_set_up()
+		elif button in [14,15,16,17]:
+			if self.modes[self.mode_index] is 'nav':
+				if button is 14:
+					controller.sound_set_left()
+				elif button is 15:
+					controller.sound_set_right()
+				elif button is 16:
+					controller.sound_set_down()
+				elif button is 17:
+					controller.sound_set_up()
+			elif self.modes[self.mode_index] is 'bar':
+				if button is 14:
+					self.comp.del_bar()
+				elif button is 15:
+					self.comp.copy_bar()
+				elif button is 16:
+					self.comp.cut_bar()
+				elif button is 17:
+					self.comp.add_bar()
 		# else:
 			# self.play_sound_thread(button_map[button])
 			# if self.record: self.comp.add_sound(self.sound_sets[self.sound_set_index][button], self.comp.bar, self.comp._64)
@@ -239,24 +250,7 @@ class Tcompose:
 					name = 'cut' + str(self.cut_count)
 					self.comp.new_sound(name, new_segment, new_sample)		
 					self.comp.add_sound(name, self.start_bars[button], self.start_64s[button])
-					
-				
-		#put record here
-		#TRIM it to corresponding time --- how?
-		#calculate difference?
-		# if self.record: self.comp.add_sound(self.sound_sets[self.sound_set_index][button], self.start_bar, self.start_64)
-		
-		#AUDIO SEGMENT
-		#can get raw data from audio segment - apply filter - plug into winsound
-		#try this out in the lab and time it
-		#new_sound = sound._spawn(shifted_samples_array)
-		#FILE NAVIGATION
-		
-		#use same time function from lab to get a start and end time ?
-		#if can get a second value for duration is it possible to trim the wav file to that length?
-		#using something like samplewidth, number of samples
-		
-		winsound.PlaySound(None, winsound.SND_PURGE)
+			winsound.PlaySound(None, winsound.SND_PURGE)
 		return 0
 		
 class Tcut:
@@ -273,10 +267,9 @@ class Tcut:
 class Tsetsoundset:
 	def __init__(self):
 		self.name = 'setsoundset'
-		# self.sound_sets = numpy.zeros(shape=(3,3))
-		# print self.sound_sets
-		# self.sounds_path = "C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\"
-		# self.sounds = get_sound_library(self.sounds_path)
+		self.sounds_path = "C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\"
+		self.sounds = get_sound_library(self.sounds_path)
+		print self.sounds
 		
 	def display(self):
 		textPrint.log(screen, "setsoundset")
@@ -367,6 +360,18 @@ class Tsynth:
 
 class Controller:
 	def __init__(self):
+		self.width = 3
+		self.height = 3
+		self.sound_sets = []
+		for x in range(self.width):
+			row = []
+			for y in range(self.height):
+				column = ['jump.wav', 'kick.wav', 'land.wav', 'fireball.wav']
+				row.append(column)
+			self.sound_sets.append(row)
+		self.sound_set_index = [1,1]
+	
+	
 		self.modes = ['compose', 'cut', 'synth']
 		self.mode_handlers = [Tcompose(), Tcut(), Tsynth(), Tsetsoundset()]
 		self.mode_index = 0
@@ -398,6 +403,26 @@ class Controller:
 			self.mode = self.modes[new_index]
 		print self.mode
 		
+	def sound_set_up(self):
+		if (self.sound_set_index[1] + 1) >= (self.height):
+			self.sound_set_index[1] = 0
+		else:
+			self.sound_set_index[1] += 1
+	def sound_set_right(self):
+		if (self.sound_set_index[0] + 1) >= (self.width):
+			self.sound_set_index[0] = 0
+		else:
+			self.sound_set_index[0] += 1
+	def sound_set_down(self):
+		if (self.sound_set_index[1] - 1) < 0:
+			self.sound_set_index[1] = self.height - 1
+		else:
+			self.sound_set_index[1] -= 1
+	def sound_set_left(self):
+		if (self.sound_set_index[0] - 1) < 0:
+			self.sound_set_index[0] = self.width - 1
+		else:
+			self.sound_set_index[0] -= 1
 		
 	def button_down(self, button):
 		print 'down', button
@@ -484,11 +509,39 @@ class Composition:
 	def add_sound(self, name, bar, _64s):
 		self.comp[bar][_64s].append(name)
 		
+	def _new_bar(self, tSig):
+		_beats_in_bar = tSig[0]
+		_64s_in_beat = 64 / tSig[1]
+		_64s_in_bar = _beats_in_bar * _64s_in_beat
+		bar = [[] for _ in range(_64s_in_bar)]
+		return bar	
+		
 	def add_bar(self):
-		self.comp.append(new_bar(self.timeSignature))
+		print 'add_bar'
+		#add empty bar to end of composition
+		self.comp.append(self._new_bar(self.timeSignature))
 	
-	def remove_bar(self):
-		del self.comp[-1]
+	def cut_bar(self):
+		print 'cut_bar'
+		#remove bar from end of composition
+		if len(self.comp) is 1:
+			return
+		else:
+			del self.comp[-1]
+		
+	def copy_bar(self):
+		print 'copy_bar'
+		#copies current bar
+		bar = copy.deepcopy(self.comp[self.bar])
+		self.comp.insert(self.bar, bar)
+	
+	def del_bar(self):
+		print 'del_bar'	
+		#removes current bar
+		if len(self.comp) is 1:
+			return
+		else:
+			self.comp = self.comp[:self.bar] + self.comp[self.bar+1:]
 		
 	def start_loop(self):
 		self.loop = True
@@ -497,14 +550,22 @@ class Composition:
 		t.start()
 		
 	def loop_thread(self):
-		bars = range(len(self.comp))
-		beats = range(len(self.comp[0]))
 		while self.loop:
+			bars = range(len(self.comp))
+			beats = range(len(self.comp[0]))
 			for bar in bars:
 				self.bar = bar
 				for beat in beats:
 					self._64 = beat
-					for sound in self.comp[bar][beat]:
+					try:
+						sounds = range(len(self.comp[bar][beat]))
+					except Exception as e:
+						break
+					for s in sounds:
+						try:
+							sound = self.comp[bar][beat][s]
+						except Exception as e:
+							break
 						if sound: self.play_sound_thread(sound)
 					#sleep for time of 1 64th note .... minus time of overhead????
 					time.sleep(self.len64_sleep)
