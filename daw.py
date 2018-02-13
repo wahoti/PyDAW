@@ -26,11 +26,16 @@ import array
 import copy
 
 #whats next?
+
+#bar manipulation feels a little clunky
+#joy sticks issssss tempo control
+
+
 #TCOMPOSE SUBMODES with share - will alter what dpad does - one mode for sound set navigation - one mode for bar manipulation
 #sound set setup
 #sound cut change? to save memory store length in ms or chunks instead of copying the segment data
-#add bar remove bar copy bar
 #more filters
+#some kind of mode to auto sync to certain note quarter eighth etc
 #cut tool
 
 #bpm
@@ -55,6 +60,18 @@ def new_bar(tSig):
 	_64s_in_bar = _beats_in_bar * _64s_in_beat
 	bar = [[] for _ in range(_64s_in_bar)]
 	return bar	
+
+def next_list(index, list):
+	if (index + 1) >= len(list):
+		return 0
+	else:
+		return index + 1
+		
+def prev_list(index, list):
+	if (index - 1) < 0:
+		return len (list)-1
+	else:
+		return index - 1
 	
 	
 class T_:
@@ -77,11 +94,11 @@ class Tcompose:
 		self.Lfilter = self.test_filter
 		self.Rfilter = self.test_filter
 		
-		self.start_bars = [0,0,0,0]
-		self.start_64s = [0,0,0,0]
-		self.end_bars = [0,0,0,0]
-		self.end_64s = [0,0,0,0]
-		self.sound_stack = [0,0,0,0]
+		self.start_bars = [0,0,0,0,0,0]
+		self.start_64s = [0,0,0,0,0,0]
+		self.end_bars = [0,0,0,0,0,0]
+		self.end_64s = [0,0,0,0,0,0]
+		self.sound_stack = [0,0,0,0,0,0]
 		
 		self.threads = []
 		
@@ -91,16 +108,16 @@ class Tcompose:
 		
 		self.sounds_path = "C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\"
 		
-		self.width = 3
-		self.height = 3
-		self.sound_sets = []
-		for x in range(self.width):
-			row = []
-			for y in range(self.height):
-				column = ['jump.wav', 'kick.wav', 'land.wav', 'fireball.wav']
-				row.append(column)
-			self.sound_sets.append(row)
-		self.sound_set_index = [1,1]
+		# self.width = 3
+		# self.height = 3
+		# self.sound_sets = []
+		# for x in range(self.width):
+			# row = []
+			# for y in range(self.height):
+				# column = ['jump.wav', 'kick.wav', 'land.wav', 'fireball.wav']
+				# row.append(column)
+			# self.sound_sets.append(row)
+		# self.sound_set_index = [1,1]
 		
 	def display(self):
 		textPrint.log(screen, "sub-mode: {}".format(self.modes[self.mode_index]) )	
@@ -115,46 +132,6 @@ class Tcompose:
 		else:
 			self.mode_index += 1
 	
-	def make_chunks(self, audio_segment, chunk_length):
-		"""
-		Breaks an AudioSegment into chunks that are <chunk_length> milliseconds
-		long.
-		if chunk_length is 50 then you'll get a list of 50 millisecond long audio
-		segments back (except the last one, which can be shorter)
-		"""
-		number_of_chunks = math.ceil(len(audio_segment) / float(chunk_length))
-		return [audio_segment[i * chunk_length:(i + 1) * chunk_length]
-				for i in range(int(number_of_chunks))]
-	
-	def play_sound_pydub(self, seg, button):
-		p = pyaudio.PyAudio()
-		stream = p.open(format=p.get_format_from_width(seg.sample_width),
-			channels=seg.channels,
-			rate=seg.frame_rate,
-			output=True)
-
-		chunks = self.make_chunks(seg, 100)
-		
-		for x in range(len(chunks)):
-			if not controller.buttons[button]:
-				break
-			stream.write(chunks[x]._data)
-	
-		# play(segment)
-		return 0
-	
-	def play_sound_winsound(self, sound):
-		# winsound.PlaySound(r'C:\Users\wahed\Desktop\daw\pydaw\sounds\dragon_coin.wav', winsound.SND_ASYNC)
-		winsound.PlaySound(self.sounds_path + sound, winsound.SND_ASYNC)
-		return 0
-	
-	def play_sound_thread(self, segment, button):
-		t = threading.Thread(target=self.play_sound_pydub, args=[segment, button])
-		# t = threading.Thread(target=self.play_sound_winsound, args=[sound])
-		self.threads.append(t)
-		t.start()
-		return 0
-	
 	def test_filter(self, segment, sample):
 		shifted_samples = np.right_shift(sample, 1)
 		shifted_samples_array = array.array(segment.array_type, shifted_samples)
@@ -166,13 +143,13 @@ class Tcompose:
 			self.next_mode()
 		if button is 9:
 			self.record = not self.record
-		elif button in [0,1,2,3]:
+		elif button in [0,1,2,3,4,5]:
 			self.start_bars[button] = self.comp.bar
 			self.start_64s[button] = self.comp._64
 			name = controller.sound_sets[controller.sound_set_index[0]][controller.sound_set_index[1]][button]
 			self.sound_stack[button] = name
-			segment = self.comp.audio_segments[name]
-			sample = self.comp.audio_samples[name]
+			segment = controller.audio_segments[name]
+			sample = controller.audio_samples[name]
 			filtered = False
 			if controller.buttons[6]:
 				filtered = True
@@ -186,11 +163,11 @@ class Tcompose:
 				if filtered:
 					self.filter_count += 1
 					name = 'filter' + str(self.filter_count)
-					self.comp.new_sound(name, segment, sample)
+					controller.new_sound(name, segment, sample)
 					self.sound_stack[button] = name
-				print self.comp.bar, self.comp._64
+				#add full length immediately mode?
 				# self.comp.add_sound(name, self.comp.bar, self.comp._64)
-			self.play_sound_thread(segment, button)
+			controller.play_sound_thread(segment, button)
 		elif button in [14,15,16,17]:
 			if self.modes[self.mode_index] is 'nav':
 				if button is 14:
@@ -210,12 +187,9 @@ class Tcompose:
 					self.comp.cut_bar()
 				elif button is 17:
 					self.comp.add_bar()
-		# else:
-			# self.play_sound_thread(button_map[button])
-			# if self.record: self.comp.add_sound(self.sound_sets[self.sound_set_index][button], self.comp.bar, self.comp._64)
 			
 	def button_release(self, button):
-		if button in [0,1,2,3]:
+		if button in [0,1,2,3,4,5]:
 			if self.record:
 				self.end_bars[button] = self.comp.bar
 				self.end_64s[button] = self.comp._64
@@ -226,11 +200,11 @@ class Tcompose:
 				# self.end_bars[button] = self.comp.bar
 				# self.end_64s[button] = self.comp._64
 				
-				segment = self.comp.audio_segments[self.sound_stack[button]]
-				samples =  self.comp.audio_samples[self.sound_stack[button]]
+				segment = controller.audio_segments[self.sound_stack[button]]
+				samples =  controller.audio_samples[self.sound_stack[button]]
 				print self.sound_stack[button]
 				
-				chunks = self.make_chunks(segment, 1)
+				chunks = controller.make_chunks(segment, 1)
 				
 				# new_segment = chunks[0]
 				# for chunk in chunks[1:]:
@@ -248,7 +222,7 @@ class Tcompose:
 					
 					self.cut_count += 1
 					name = 'cut' + str(self.cut_count)
-					self.comp.new_sound(name, new_segment, new_sample)		
+					controller.new_sound(name, new_segment, new_sample)		
 					self.comp.add_sound(name, self.start_bars[button], self.start_64s[button])
 			winsound.PlaySound(None, winsound.SND_PURGE)
 		return 0
@@ -267,16 +241,51 @@ class Tcut:
 class Tsetsoundset:
 	def __init__(self):
 		self.name = 'setsoundset'
-		self.sounds_path = "C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\"
-		self.sounds = get_sound_library(self.sounds_path)
-		print self.sounds
+		self.sound_index = 0
+		self.listen = False
 		
 	def display(self):
 		textPrint.log(screen, "setsoundset")
+		textPrint.log(screen, "listen? {}".format(self.listen))
+		textPrint.log(screen, "selected_sound: {}".format(controller.library[self.sound_index]))
+		textPrint.log(screen, "sound_set {}:".format(controller.sound_set_index))
+		for x in range(6):
+			textPrint.log(screen, "\t{}".format(controller.sound_sets[controller.sound_set_index[0]][controller.sound_set_index[1]][x]))
 		
-	def button_down(self, button):
+	def next_sound(self):
+		self.sound_index = next_list(self.sound_index, controller.library)
+		
+	def prev_sound(self):
+		self.sound_index = prev_list(self.sound_index, controller.library)
+		
+	def button_down(self, button):	
+		if button is 14:
+			controller.sound_set_left()
+		elif button is 15:
+			controller.sound_set_right()
+		elif button is 16:
+			controller.sound_set_down()
+		elif button is 17:
+			controller.sound_set_up()
+		elif button is 6:
+			self.prev_sound()
+		elif button is 7:
+			self.next_sound()
+		elif button is 9:
+			self.listen = not self.listen
+		elif button is 13:
+			segment = controller.audio_segments[controller.library[self.sound_index]]
+			controller.play_sound_thread(segment, button)
+		elif button in [0,1,2,3,4,5]:
+			if self.listen:
+				name = controller.sound_sets[controller.sound_set_index[0]][controller.sound_set_index[1]][button]
+				segment = controller.audio_segments[name]
+				controller.play_sound_thread(segment, button)
+			else:
+				controller.sound_sets[controller.sound_set_index[0]][controller.sound_set_index[1]][button] = controller.library[self.sound_index]
 		return 0
 	def button_release(self, button):
+		winsound.PlaySound(None, winsound.SND_PURGE)
 		return 0
 		
 class Tsynth:
@@ -360,19 +369,21 @@ class Tsynth:
 
 class Controller:
 	def __init__(self):
+		self.threads = []
+	
 		self.width = 3
 		self.height = 3
 		self.sound_sets = []
 		for x in range(self.width):
 			row = []
 			for y in range(self.height):
-				column = ['jump.wav', 'kick.wav', 'land.wav', 'fireball.wav']
+				column = ['jump.wav', 'kick.wav', 'land.wav', 'fireball.wav', 'coin.wav', 'brick_shatter.wav']
 				row.append(column)
 			self.sound_sets.append(row)
 		self.sound_set_index = [1,1]
 	
 	
-		self.modes = ['compose', 'cut', 'synth']
+		self.modes = ['compose', 'cut', 'synth', 'setsoundset']
 		self.mode_handlers = [Tcompose(), Tcut(), Tsynth(), Tsetsoundset()]
 		self.mode_index = 0
 		self.mode = self.modes[self.mode_index]
@@ -385,6 +396,10 @@ class Controller:
 		self.buttons = {}
 		self.axis = []
 		self.init_buttons()
+		
+		self.sounds_path = "C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\"
+		self.init_library()
+		self.init_audio_segments()
 		
 	def init_buttons(self):
 		for x in range(self.num_buttons):
@@ -423,7 +438,6 @@ class Controller:
 			self.sound_set_index[0] = self.width - 1
 		else:
 			self.sound_set_index[0] -= 1
-		
 	def button_down(self, button):
 		print 'down', button
 		self.buttons[button] = True
@@ -439,27 +453,49 @@ class Controller:
 	
 		if button is not 12:
 			self.mode_handlers[self.mode_index].button_release(button)
+			
+	def make_chunks(self, audio_segment, chunk_length):
+		"""
+		Breaks an AudioSegment into chunks that are <chunk_length> milliseconds
+		long.
+		if chunk_length is 50 then you'll get a list of 50 millisecond long audio
+		segments back (except the last one, which can be shorter)
+		"""
+		number_of_chunks = math.ceil(len(audio_segment) / float(chunk_length))
+		return [audio_segment[i * chunk_length:(i + 1) * chunk_length]
+				for i in range(int(number_of_chunks))]
 	
-		
+	def play_sound_pydub_nostop(self, seg):
+		play(seg)
+		return 0
 	
-class Composition:
-	def __init__(self):
-		self.threads = []
-		self.timeSignature = (4,4)
-		self.bpm = 100
-		self.comp = []
-		self.bar = 0
-		self._64 = 0
-		self.add_bar()
-		self.get_len64()
+	def play_sound_pydub(self, seg, button):
+		p = pyaudio.PyAudio()
+		stream = p.open(format=p.get_format_from_width(seg.sample_width),
+			channels=seg.channels,
+			rate=seg.frame_rate,
+			output=True)
+
+		chunks = self.make_chunks(seg, 100)
 		
-		self.sounds_path = "C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\"
-		self.init_library()
-		self.init_audio_segments()
-		
-		# self.test()		
-		self.loop = True
-		self.start_loop()
+		for x in range(len(chunks)):
+			if not controller.buttons[button]:
+				break
+			stream.write(chunks[x]._data)
+	
+		# play(segment)
+		return 0
+	
+	def play_sound_winsound(self, sound):
+		# winsound.PlaySound(r'C:\Users\wahed\Desktop\daw\pydaw\sounds\dragon_coin.wav', winsound.SND_ASYNC)
+		winsound.PlaySound(self.sounds_path + sound, winsound.SND_ASYNC)
+		return 0
+	
+	def play_sound_thread(self, segment, button):
+		t = threading.Thread(target=self.play_sound_pydub, args=[segment, button])
+		self.threads.append(t)
+		t.start()
+		return 0
 		
 	def init_library(self):
 		self.library = []		
@@ -483,6 +519,23 @@ class Composition:
 		self.library.append(name)
 		self.audio_segments[name] = segment
 		self.audio_samples[name] = sample
+	
+		
+	
+class Composition:
+	def __init__(self):
+		self.threads = []
+		self.timeSignature = (4,4)
+		self.bpm = 100
+		self.comp = []
+		self.bar = 0
+		self._64 = 0
+		self.add_bar()
+		self.get_len64()
+		
+		# self.test()		
+		self.loop = True
+		self.start_loop()
 			
 	def test(self):	
 		self.add_sound('coin.wav', 0, 0)
@@ -491,7 +544,7 @@ class Composition:
 		self.add_sound('coin.wav', 0, 46)
 	
 	def play_sound_pydub(self, sound):
-		play(self.audio_segments[sound])
+		play(controller.audio_segments[sound])
 		return 0
 	
 	def play_sound_winsound(self, sound):
@@ -604,34 +657,6 @@ class TextPrint:
         
     def unindent(self):
         self.x -= 10	
-		
-def play_sound(name):
-	sound1 = AudioSegment.from_file("C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\" + name, format="wav")
-	play(sound1)
-	return 0
-	
-def play_sound_thread(name):
-	t = threading.Thread(target=play_sound, args=[name])
-	threads.append(t)
-	t.start()
-	return 0
-	
-def process_button_down(event):
-	joy = event.joy
-	button = event.button
-	print event.button
-	
-	controller.button_down(event.button)
-	
-	return 0
-	
-def process_button_release(event):
-	joy = event.joy
-	button = event.button
-	
-	controller.button_release(event.button)
-	
-	return 0
 	
 def process_joystick(joystick):
 	joystick.init()
@@ -703,9 +728,9 @@ def main():
 				done=True # Flag that we are done so we exit this loop
 			# Possible joystick actions: JOYAXISMOTION JOYBALLMOTION JOYBUTTONDOWN JOYBUTTONUP JOYHATMOTION
 			if event.type == pygame.JOYBUTTONDOWN:
-				process_button_down(event)
+				controller.button_down(event.button)
 			if event.type == pygame.JOYBUTTONUP:
-				process_button_release(event)
+				controller.button_release(event.button)
 		
 		screen.fill(WHITE)
 		textPrint.reset()
@@ -721,28 +746,6 @@ def main():
 		pygame.display.flip()
 		# clock.tick(20)
 	return 0
-
-def get_sound_library(path_to_sounds):
-	# returns a list of sounds 
-	# sounds are all WAV files in input folder
-	sounds_list = []
-	
-	for filename in os.listdir(path_to_sounds):
-		if filename.endswith(".wav"):
-			# print(os.path.join(path_to_sounds, filename))
-			sounds_list.append(filename)
-	
-	return sounds_list
-	
-def get_random_button_map():
-	map = {}
-	
-	for i in range(num_buttons):
-		map[i] = sounds[random.randint(0,num_sounds-1)]
-	
-	print map
-	
-	return map
 	
 if __name__ == "__main__":
 	threads = []
@@ -754,13 +757,6 @@ if __name__ == "__main__":
 	clock = pygame.time.Clock()
 	pygame.joystick.init()
 	textPrint = TextPrint()
-	
-	sounds_folder = "C:\Users\wahed\Desktop\daw\pydaw\sounds"
-	sounds = get_sound_library(sounds_folder)
-	num_sounds = len(sounds)
-	num_buttons = 14
-	
-	button_map = get_random_button_map()
 	
 	controller = Controller()
 	
