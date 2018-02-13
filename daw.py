@@ -25,17 +25,16 @@ import array
 
 import copy
 
+import pickle
+
 #whats next?
 
 #bar manipulation feels a little clunky
-#joy sticks issssss tempo control
-
-
-#TCOMPOSE SUBMODES with share - will alter what dpad does - one mode for sound set navigation - one mode for bar manipulation
-#sound set setup
-#sound cut change? to save memory store length in ms or chunks instead of copying the segment data
+#joy sticks is tempo control
+	#auto sync to certain note quarter eighth etc
 #more filters
-#some kind of mode to auto sync to certain note quarter eighth etc
+#more sounds
+#sound cut change? to save memory store length in ms or chunks instead of copying the segment data
 #cut tool
 
 #bpm
@@ -101,23 +100,8 @@ class Tcompose:
 		self.sound_stack = [0,0,0,0,0,0]
 		
 		self.threads = []
-		
 		self.comp = Composition()
-		
 		self.record = False
-		
-		self.sounds_path = "C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\"
-		
-		# self.width = 3
-		# self.height = 3
-		# self.sound_sets = []
-		# for x in range(self.width):
-			# row = []
-			# for y in range(self.height):
-				# column = ['jump.wav', 'kick.wav', 'land.wav', 'fireball.wav']
-				# row.append(column)
-			# self.sound_sets.append(row)
-		# self.sound_set_index = [1,1]
 		
 	def display(self):
 		textPrint.log(screen, "sub-mode: {}".format(self.modes[self.mode_index]) )	
@@ -196,19 +180,13 @@ class Tcompose:
 				diff_bar = self.end_bars[button] - self.start_bars[button]
 				diff_64s = self.end_64s[button] - self.start_64s[button]
 				
-				print self.start_bars[button], self.start_64s[button]
 				# self.end_bars[button] = self.comp.bar
 				# self.end_64s[button] = self.comp._64
 				
 				segment = controller.audio_segments[self.sound_stack[button]]
 				samples =  controller.audio_samples[self.sound_stack[button]]
-				print self.sound_stack[button]
 				
 				chunks = controller.make_chunks(segment, 1)
-				
-				# new_segment = chunks[0]
-				# for chunk in chunks[1:]:
-					# new_segment = new_segment + chunk
 				
 				if diff_bar < 0:
 					self.comp.add_sound(self.sound_stack[button], self.start_bars[button], self.start_64s[button])
@@ -251,7 +229,7 @@ class Tsetsoundset:
 		textPrint.log(screen, "sound_set {}:".format(controller.sound_set_index))
 		for x in range(6):
 			textPrint.log(screen, "\t{}".format(controller.sound_sets[controller.sound_set_index[0]][controller.sound_set_index[1]][x]))
-		
+			
 	def next_sound(self):
 		self.sound_index = next_list(self.sound_index, controller.library)
 		
@@ -271,8 +249,8 @@ class Tsetsoundset:
 			self.prev_sound()
 		elif button is 7:
 			self.next_sound()
-		elif button is 9:
-			self.listen = not self.listen
+		elif button is 8:
+			controller.save_sound_set()
 		elif button is 13:
 			segment = controller.audio_segments[controller.library[self.sound_index]]
 			controller.play_sound_thread(segment, button)
@@ -381,15 +359,6 @@ class Controller:
 				row.append(column)
 			self.sound_sets.append(row)
 		self.sound_set_index = [1,1]
-	
-	
-		self.modes = ['compose', 'cut', 'synth', 'setsoundset']
-		self.mode_handlers = [Tcompose(), Tcut(), Tsynth(), Tsetsoundset()]
-		self.mode_index = 0
-		self.mode = self.modes[self.mode_index]
-		#MODES: 'compose', 'cut', 
-		#settings for individual tools?
-		#mode controls the button layout and functionality
 		
 		self.num_buttons = 14
 		self.dpad = [0,0]
@@ -401,10 +370,30 @@ class Controller:
 		self.init_library()
 		self.init_audio_segments()
 		
+		self.modes = ['compose', 'cut', 'synth', 'setsoundset']
+		self.mode_handlers = [Tcompose(), Tsetsoundset(), Tcut(), Tsynth()]
+		self.mode_index = 0
+		self.mode = self.modes[self.mode_index]
+		#MODES: 'compose', 'cut', 
+		#settings for individual tools?
+		#mode controls the button layout and functionality
+		
+		self.load_sound_set()
+		
 	def init_buttons(self):
 		for x in range(self.num_buttons):
 			#was down - is down
 			self.buttons[x] = False
+		
+	def load_sound_set(self):
+		print "loading sound sets"
+		with open('soundset.pkl') as f:
+			self.sound_sets = pickle.load(f)
+	
+	def save_sound_set(self):
+		print "saving sound sets"
+		with open('soundset.pkl', 'w') as f:
+			pickle.dump(self.sound_sets, f)
 		
 	def next_mode(self):
 		
