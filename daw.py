@@ -94,6 +94,7 @@ class Tcompose:
 		self.Rfilter = self.test_filter
 		self.L3filter = self.test_filter
 		self.R3filter = self.test_filter
+		self.tempo = '64'
 		
 		self.start_bars = [0,0,0,0,0,0]
 		self.start_64s = [0,0,0,0,0,0]
@@ -111,6 +112,25 @@ class Tcompose:
 		textPrint.log(screen, "beat: {}".format(self.comp._64) )	
 		textPrint.log(screen, "record: {}".format(self.record) )	
 		textPrint.log(screen, "sound_set: {}".format(controller.sound_sets[controller.sound_set_index[0]][controller.sound_set_index[1]]) )	
+		angle = controller.Langle
+		if (abs(controller.L3[0]) < .15) and (abs(controller.L3[1]) < .15):
+			self.tempo = 64
+		else:
+			if angle < 20:
+				self.tempo = 1
+			elif angle > 80:
+				self.tempo = 2
+			if controller.L3[1] > 0:
+				if (angle > 20) and (angle < 50):
+					self.tempo = 8
+				elif (angle > 50) and (angle < 80):
+					self.tempo = 4
+			else:
+				if (angle > 20) and (angle < 50):
+					self.tempo = 32
+				elif (angle > 50) and (angle < 80):
+					self.tempo = 16
+		textPrint.log(screen, "tempo: 1/{}".format(self.tempo))
 	
 	def next_mode(self):
 		if (self.mode_index + 1) >= len(self.modes):
@@ -123,6 +143,18 @@ class Tcompose:
 		shifted_samples_array = array.array(segment.array_type, shifted_samples)
 		new_segment = segment._spawn(shifted_samples_array)
 		return new_segment
+	
+	def tempo_template(self, interval, _64):
+		intervals = []
+		distances = []
+		x = 0
+		while (x+interval) < 64:
+			x += interval
+			intervals.append(x)
+		for i in intervals:
+			distances.append(abs(i - _64))
+		print intervals
+		return intervals[distances.index(min(distances))]
 	
 	def button_down(self, button):
 		if button is 8:
@@ -179,67 +211,100 @@ class Tcompose:
 			if self.record:
 				self.end_bars[button] = self.comp.bar
 				self.end_64s[button] = self.comp._64
+				
 				diff_bar = self.end_bars[button] - self.start_bars[button]
 				diff_64s = self.end_64s[button] - self.start_64s[button]
 				
-				# self.end_bars[button] = self.comp.bar
-				# self.end_64s[button] = self.comp._64
-				
 				segment = controller.audio_segments[self.sound_stack[button]]
 				samples =  controller.audio_samples[self.sound_stack[button]]
-				
 				chunks = controller.make_chunks(segment, 1)
 				
+				#chop of audio at last bar
 				if diff_bar < 0:
-					self.comp.add_sound(self.sound_stack[button], self.start_bars[button], self.start_64s[button])
+					num_64s = diff_64s if diff_64s >= 0 else (64 - abs(diff_64s))
 				else:
 					num_64s = (diff_bar * 64) + diff_64s if diff_64s >= 0 else (diff_bar * 64) + (64 - abs(diff_64s))
+					
+				#if button released early chop the sound
+				if num_64s < len(segment):
 					index = self.comp.len64 * num_64s
 					new_segment = segment[:index]
-					
 					new_sample = new_segment.get_array_of_samples()
-					
+				
 					self.cut_count += 1
 					name = 'cut' + str(self.cut_count)
 					controller.new_sound(name, new_segment, new_sample)
-					print ((controller.L3[0]), (controller.L3[1]))
-					if (abs(controller.L3[0]) < .15) and (abs(controller.L3[1]) < .15):
-						self.comp.add_sound(name, self.start_bars[button], self.start_64s[button])
-					else:
-						v1 = [0.0, -1.0]
-						v2 = [controller.L3[1], controller.L3[0]] 
-						dot = (v1[0] * v2[0]) + (v1[1] * v2[0])
-						angle = (math.acos(dot) / math.pi) * 100
-						#need 1/1 1/2 1/4 1/8 1/16 1/32
-						print angle
-						if angle < 20:
-							print 'whole note'
-							#whole note 1/1
-							self.comp.add_sound(name, self.start_bars[button], 0)
-						elif angle > 80:
-							print 'eighth note'
-							#eighth note 1/8
-							intervals = [0, 8, 16, 24, 32, 40, 48, 56]
-							distances = []
-							for i in intervals:
-								distances.append(abs(i - self.start_64s[button]))
-							spot = intervals[distances.index(min(distances))]
-							print spot
-							self.comp.add_sound(name, self.start_bars[button], spot)
-						if controller.L3[0] > 0:
-							if (angle > 20) and (angle < 50):
-								#half note
-								print 'half note'
-							elif (angle > 50) and (angle < 80):
-								#quarter note
-								print 'quarter note'
-						else:
-							if (angle > 20) and (angle < 50):
-								#32 note
-								print '32 note'
-							elif (angle > 50) and (angle < 80):
-								#16 note
-								print '16 note'
+
+				#place sound according to tempo
+				print self.tempo
+				if self.tempo is 64:
+					print '1/64'
+					self.comp.add_sound(name, self.start_bars[button], self.start_64s[button])
+				elif self.tempo is 32:
+					print '1/32'
+					spot = self.tempo_template(2, self.start_64s[button])
+					self.comp.add_sound(name, self.start_bars[button], spot)
+				elif self.tempo is 16:
+					print '1/16'
+					spot = self.tempo_template(4, self.start_64s[button])
+					self.comp.add_sound(name, self.start_bars[button], spot)
+				elif self.tempo is 8:
+					print '1/8'
+					spot = self.tempo_template(8, self.start_64s[button])
+					self.comp.add_sound(name, self.start_bars[button], spot)
+				elif self.tempo is 4:
+					print '1/4'
+					spot = self.tempo_template(16, self.start_64s[button])
+					self.comp.add_sound(name, self.start_bars[button], spot)
+				elif self.tempo is 2:
+					print '1/2'
+					spot = self.tempo_template(32, self.start_64s[button])
+					self.comp.add_sound(name, self.start_bars[button], spot)
+				elif self.tempo is 1:
+					print '1/1'
+					self.comp.add_sound(name, self.start_bars[button], 0)
+					# print ((controller.L3[0]), (controller.L3[1]))
+					# if (abs(controller.L3[0]) < .15) and (abs(controller.L3[1]) < .15):
+						# self.comp.add_sound(name, self.start_bars[button], self.start_64s[button])
+					# else:
+						# # v1 = [0.0, -1.0]
+						# # v2 = [controller.L3[1], controller.L3[0]] 
+						# # dot = (v1[0] * v2[0]) + (v1[1] * v2[0])
+						# # angle = (math.acos(dot) / math.pi) * 100
+						# angle = controller.Langle
+						# #need 1/1 1/2 1/4 1/8 1/16 1/32
+						# print angle
+						# if angle < 20:
+							# print 'whole note'
+							# #whole note 1/1
+							# self.comp.add_sound(name, self.start_bars[button], 0)
+						# elif angle > 80:
+							# print 'eighth note'
+							# #eighth note 1/8
+							# spot = self.tempo_template(8, self.start_64s[button])
+							# self.comp.add_sound(name, self.start_bars[button], spot)
+						# if controller.L3[1] > 0:
+							# if (angle > 20) and (angle < 50):
+								# #half note
+								# print 'half note'
+								# spot = self.tempo_template(32, self.start_64s[button])
+								# self.comp.add_sound(name, self.start_bars[button], spot)
+							# elif (angle > 50) and (angle < 80):
+								# #quarter note
+								# print 'quarter note'
+								# spot = self.tempo_template(16, self.start_64s[button])
+								# self.comp.add_sound(name, self.start_bars[button], spot)
+						# else:
+							# if (angle > 20) and (angle < 50):
+								# #32 note
+								# print '32 note'
+								# spot = self.tempo_template(2, self.start_64s[button])
+								# self.comp.add_sound(name, self.start_bars[button], spot)
+							# elif (angle > 50) and (angle < 80):
+								# #16 note
+								# print '16 note'
+								# spot = self.tempo_template(4, self.start_64s[button])
+								# self.comp.add_sound(name, self.start_bars[button], spot)
 			winsound.PlaySound(None, winsound.SND_PURGE)
 		return 0
 		
@@ -403,6 +468,7 @@ class Controller:
 		self.buttons = {}
 		self.L3 = [0, 0]
 		self.R3 = [0, 0]
+		self.Langle = 0
 		self.init_buttons()
 		
 		self.sounds_path = "C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\"
@@ -701,14 +767,13 @@ def process_joystick(joystick):
 	textPrint.indent()
 	
 	# print (joystick.get_axis( 0 ), joystick.get_axis( 1 ))
-	controller.L3 = [joystick.get_axis( 0 ), joystick.get_axis( 1 )]
-	controller.R3 = [joystick.get_axis( 2 ), joystick.get_axis( 3 )]
+	controller.L3 = [joystick.get_axis( 1 ), joystick.get_axis( 0 )]
+	controller.R3 = [joystick.get_axis( 3 ), joystick.get_axis( 2 )]
 	
-	# v1 = [0, -1]
-	# v2 = [controller.L3[1], controller.L3[0]] 
-	# dot = (v1[0] * v2[0]) + (v1[1] * v2[0])
-	# angle = math.acos(dot) / math.pi
-	# print angle
+	v1 = [-1.0, 0.0]
+	v2 = [controller.L3[0], controller.L3[1]] 
+	dot = (v1[0] * v2[0]) + (v1[1] * v2[0])
+	controller.Langle = (math.acos(dot) / math.pi) * 100
 	
 	for i in range( axes ):
 		axis = joystick.get_axis( i )
