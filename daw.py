@@ -92,6 +92,8 @@ class Tcompose:
 		self.cut_count = 0
 		self.Lfilter = self.test_filter
 		self.Rfilter = self.test_filter
+		self.L3filter = self.test_filter
+		self.R3filter = self.test_filter
 		
 		self.start_bars = [0,0,0,0,0,0]
 		self.start_64s = [0,0,0,0,0,0]
@@ -192,7 +194,6 @@ class Tcompose:
 					self.comp.add_sound(self.sound_stack[button], self.start_bars[button], self.start_64s[button])
 				else:
 					num_64s = (diff_bar * 64) + diff_64s if diff_64s >= 0 else (diff_bar * 64) + (64 - abs(diff_64s))
-					print num_64s
 					index = self.comp.len64 * num_64s
 					new_segment = segment[:index]
 					
@@ -200,8 +201,45 @@ class Tcompose:
 					
 					self.cut_count += 1
 					name = 'cut' + str(self.cut_count)
-					controller.new_sound(name, new_segment, new_sample)		
-					self.comp.add_sound(name, self.start_bars[button], self.start_64s[button])
+					controller.new_sound(name, new_segment, new_sample)
+					print ((controller.L3[0]), (controller.L3[1]))
+					if (abs(controller.L3[0]) < .15) and (abs(controller.L3[1]) < .15):
+						self.comp.add_sound(name, self.start_bars[button], self.start_64s[button])
+					else:
+						v1 = [0.0, -1.0]
+						v2 = [controller.L3[1], controller.L3[0]] 
+						dot = (v1[0] * v2[0]) + (v1[1] * v2[0])
+						angle = (math.acos(dot) / math.pi) * 100
+						#need 1/1 1/2 1/4 1/8 1/16 1/32
+						print angle
+						if angle < 20:
+							print 'whole note'
+							#whole note 1/1
+							self.comp.add_sound(name, self.start_bars[button], 0)
+						elif angle > 80:
+							print 'eighth note'
+							#eighth note 1/8
+							intervals = [0, 8, 16, 24, 32, 40, 48, 56]
+							distances = []
+							for i in intervals:
+								distances.append(abs(i - self.start_64s[button]))
+							spot = intervals[distances.index(min(distances))]
+							print spot
+							self.comp.add_sound(name, self.start_bars[button], spot)
+						if controller.L3[0] > 0:
+							if (angle > 20) and (angle < 50):
+								#half note
+								print 'half note'
+							elif (angle > 50) and (angle < 80):
+								#quarter note
+								print 'quarter note'
+						else:
+							if (angle > 20) and (angle < 50):
+								#32 note
+								print '32 note'
+							elif (angle > 50) and (angle < 80):
+								#16 note
+								print '16 note'
 			winsound.PlaySound(None, winsound.SND_PURGE)
 		return 0
 		
@@ -363,7 +401,8 @@ class Controller:
 		self.num_buttons = 14
 		self.dpad = [0,0]
 		self.buttons = {}
-		self.axis = []
+		self.L3 = [0, 0]
+		self.R3 = [0, 0]
 		self.init_buttons()
 		
 		self.sounds_path = "C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\"
@@ -660,6 +699,16 @@ def process_joystick(joystick):
 	axes = joystick.get_numaxes()
 	textPrint.log(screen, "Number of axes: {}".format(axes) )
 	textPrint.indent()
+	
+	# print (joystick.get_axis( 0 ), joystick.get_axis( 1 ))
+	controller.L3 = [joystick.get_axis( 0 ), joystick.get_axis( 1 )]
+	controller.R3 = [joystick.get_axis( 2 ), joystick.get_axis( 3 )]
+	
+	# v1 = [0, -1]
+	# v2 = [controller.L3[1], controller.L3[0]] 
+	# dot = (v1[0] * v2[0]) + (v1[1] * v2[0])
+	# angle = math.acos(dot) / math.pi
+	# print angle
 	
 	for i in range( axes ):
 		axis = joystick.get_axis( i )
