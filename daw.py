@@ -29,13 +29,24 @@ import pickle
 
 #whats next?
 
-#bar manipulation feels a little clunky
-#joy sticks is tempo control
-	#auto sync to certain note quarter eighth etc
 #more filters
-#more sounds
+	#change pitch
+	#change volume
+	#get value of r2 l2??
+	
+#R3/L3 will switch what filter
+	
+#R3 volume???
+	
+#cut/sampling tool - chop, grab frequency range, save samples
+#synth
+
+#backlog
+
+#bar manipulation feels a little clunky - its prob fine for now tho
 #sound cut change? to save memory store length in ms or chunks instead of copying the segment data
-#cut tool
+
+#notes
 
 #bpm
 #time measure
@@ -91,10 +102,10 @@ class Tcompose:
 		self.filter_count = 0
 		self.cut_count = 0
 		self.Lfilter = self.test_filter
-		self.Rfilter = self.test_filter
-		self.L3filter = self.test_filter
-		self.R3filter = self.test_filter
-		self.tempo = '64'
+		self.Rfilter = self.reverse_filter
+		self.tempo = 64
+		self.velocity = 1.0
+		self.pitch = 1.0
 		
 		self.start_bars = [0,0,0,0,0,0]
 		self.start_64s = [0,0,0,0,0,0]
@@ -112,6 +123,20 @@ class Tcompose:
 		textPrint.log(screen, "beat: {}".format(self.comp._64) )	
 		textPrint.log(screen, "record: {}".format(self.record) )	
 		textPrint.log(screen, "sound_set: {}".format(controller.sound_sets[controller.sound_set_index[0]][controller.sound_set_index[1]]) )	
+		
+		if (abs(controller.R3[0]) < .15):
+			self.pitch = 1.0 if controller.R3[0] > 0 else -1.0
+		else:
+			self.pitch = controller.R3[0] + 1.0 if controller.R3[0] > 0 else controller.R3[0] - 1.0
+		
+		if (abs(controller.R3[1]) < .05):
+			self.velocity = 1.0 if controller.R3[1] > 0 else -1.0
+		else:
+			self.velocity = controller.R3[1] + 1.0 if controller.R3[1] > 0 else controller.R3[1] - 1.0
+			
+		textPrint.log(screen, "velocity: {}".format(self.velocity))
+		textPrint.log(screen, "pitch?: {}".format(self.pitch))
+		
 		angle = controller.Langle
 		if (abs(controller.L3[0]) < .15) and (abs(controller.L3[1]) < .15):
 			self.tempo = 64
@@ -137,6 +162,24 @@ class Tcompose:
 			self.mode_index = 0
 		else:
 			self.mode_index += 1
+			
+	def reverse_filter(self, segment, sample):
+		print 'reverse_filter'
+		return segment.reverse()
+			
+	def velocity_filter(self, segment, sample):
+		new_segment = segment + (self.velocity) if self.velocity > 0 else segment + (self.velocity / 2)
+		# new_segment = segment.apply_gain(self.velocity)
+		return new_segment
+		
+	def pitch_filter(self, segment, sample):
+		# if self.pitch > 1.15:
+			# new_segment = segment.set_sample_width(2)
+		# elif self.pitch < -1.15:
+			# new_segment = segment.set_sample_width(4)
+		# else:
+		new_segment = segment
+		return new_segment
 	
 	def test_filter(self, segment, sample):
 		shifted_samples = np.right_shift(sample, 1)
@@ -177,6 +220,14 @@ class Tcompose:
 				filtered = True
 				segment = self.Rfilter(segment, sample)
 				sample = segment.get_array_of_samples()
+			if abs(self.velocity) > 1.01:
+				filtered = True
+				segment = self.pitch_filter(segment, sample)
+				sample = segment.get_array_of_samples()
+			if abs(self.pitch) > 1.01:
+				filtered = True
+				segment = self.velocity_filter(segment, sample)
+				sample = segment.get_array_of_samples()				
 			if self.record:
 				if filtered:
 					self.filter_count += 1
@@ -768,7 +819,7 @@ def process_joystick(joystick):
 	
 	# print (joystick.get_axis( 0 ), joystick.get_axis( 1 ))
 	controller.L3 = [joystick.get_axis( 1 ), joystick.get_axis( 0 )]
-	controller.R3 = [joystick.get_axis( 3 ), joystick.get_axis( 2 )]
+	controller.R3 = [joystick.get_axis( 2 ), joystick.get_axis( 3 )]
 	
 	v1 = [-1.0, 0.0]
 	v2 = [controller.L3[0], controller.L3[1]] 
