@@ -29,14 +29,17 @@ import pickle
 
 #whats next?
 
+#based on how many sounds are stacked it increases the delay time
+#figure out how to account for this
+#it may be neglible for amounts less than a lot of stacked sounds
+#maybe
+
 #more filters
 	#change pitch
 	#change volume
 	#get value of r2 l2??
 	
 #R3/L3 will switch what filter
-	
-#R3 volume???
 	
 #cut/sampling tool - chop, grab frequency range, save samples
 #synth
@@ -671,12 +674,17 @@ class Composition:
 	def __init__(self):
 		self.threads = []
 		self.timeSignature = (4,4)
-		self.bpm = 100
+		self.bpm = 80
 		self.comp = []
 		self.bar = 0
 		self._64 = 0
 		self.add_bar()
 		self.get_len64()
+		
+		self.sound_limit = 4
+		
+		self.start = time.time()
+		self.end = time.time()
 		
 		# self.test()		
 		self.loop = True
@@ -706,6 +714,9 @@ class Composition:
 	
 	def add_sound(self, name, bar, _64s):
 		self.comp[bar][_64s].append(name)
+		if len(self.comp[bar][_64s]) >= self.sound_limit:
+			self.comp[bar][_64s] = self.comp[bar][_64s][1:]
+			print 'sound limit enforced'
 		
 	def _new_bar(self, tSig):
 		_beats_in_bar = tSig[0]
@@ -765,8 +776,16 @@ class Composition:
 						except Exception as e:
 							break
 						if sound: self.play_sound_thread(sound)
-					#sleep for time of 1 64th note .... minus time of overhead????
-					time.sleep(self.len64_sleep)
+					self.end=time.time()
+					#sleep for time of 1 64th note minus time of overhead
+					sleep_time = self.len64_sleep - (self.end-self.start)
+					# print self.end-self.start
+					# print sleep_time
+					if sleep_time < 0:
+						print 'WARNING overhead throwing off clock', sleep_time, len(sounds)
+					else:
+						time.sleep(sleep_time)
+					self.start = time.time()
 		return 0
 		
 		
