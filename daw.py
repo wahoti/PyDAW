@@ -31,6 +31,17 @@ from pydub.generators import *
 
 #whats next?
 
+#synth evolution
+#modify timbre
+#filter - subtractive - block certain frequencies
+#modify amplitude over time for fade or grow
+#modulation 
+	#low frequency oscillator - wiggles pitch - vibrato
+	#ring modulator - combining 2 inputs to get brand new frequencies
+	#subtractive synthesis: it starts with a harmonically rich waveform and filters out certain frequencies to carve out a sound
+	#additive synthesis:
+	#multiplicative synthesis:
+
 #UNDOCUMENTED SPICE
 #to the lab
 #then to the synth?
@@ -448,11 +459,13 @@ class Tsynth:
 		self.R = self.sine
 		
 		self.frequencies = [523.0, 329.63, 392.0]
-		lms = 10.0
+		lms = 1000.0
 		for f in self.frequencies:
 			segment = Triangle(f).to_audio_segment(lms, 0.0)
-			self.triangle[f] = segment._data
-			self.sine[f] = Sine(f).to_audio_segment(lms, 0.0)._data
+			self.triangle[f] = segment
+			# self.sine[f] = Sine(f).to_audio_segment(lms, 0.0)._data
+			self.sine[f] = Sine(f).to_audio_segment(lms, 0.0)
+			self.sine[f].export("C:\\Users\\wahed\\Desktop\\daw\\pydaw\\boop" + str(f) + ".wav", format="wav")
 			# self.pulse[f] = Pulse(f).to_audio_segment(lms, 0.0)
 			# self.square[f] = Square(f).to_audio_segment(lms, 0.0)
 			# self.sawtooth[f] = Sawtooth(f).to_audio_segment(lms, 0.0)
@@ -466,14 +479,29 @@ class Tsynth:
 			self.streams.append(p.open(format = p.get_format_from_width(1), channels = 1, rate = self.frame_rate, output = True))
 	
 	def play_sound(self, sound, button):
-		if (self.last_stream + 1) >= len(self.streams):
-			self.last_stream = 0
-			self.streams[0].write(sound)
-		else:
-			s = self.last_stream + 1
-			self.last_stream = s
-			while controller.buttons[button]:
-				self.streams[s].write(sound)
+		# if (self.last_stream + 1) >= len(self.streams):
+			# self.last_stream = 0
+			# self.streams[0].write(sound)
+		# else:
+			# s = self.last_stream + 1
+			# self.last_stream = s
+			# while controller.buttons[button]:
+				# self.streams[s].write(sound)
+				
+		p = pyaudio.PyAudio()
+		stream = p.open(format=p.get_format_from_width(sound.sample_width),
+			channels=sound.channels,
+			rate=sound.frame_rate,
+			output=True)
+
+		chunks = controller.make_chunks(sound, 100)
+		
+		while True:
+			for x in range(len(chunks)):
+				if not controller.buttons[button]:
+					break
+				stream.write(chunks[x]._data)
+			# stream.write(sound._data)
 		return
 	
 	def play_sound_thread(self, f, LR, button):
