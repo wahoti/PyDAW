@@ -1,6 +1,7 @@
 import pydub
 from pydub import AudioSegment
 from pydub.playback import play
+from pydub.generators import *
 
 import math        #import needed modules
 import pyaudio     #sudo apt-get install python-pyaudio
@@ -315,7 +316,98 @@ def hm():
 	stream.stop_stream()
 	stream.close()
 
-	p.terminate()
+	p.terminate()	
+	
+def synth2():
+	generators = []
+	segments = []
+	samples = []
+	lms = 1000.0
+	ls = lms / 1000.0
+
+	for x in [523.0, 329.63, 392.0]:
+		# generator = Sine(x)
+		generator = Triangle(x)
+		generators.append(generator)
+		segment = generator.to_audio_segment(lms, 0.0)
+		segments.append(segment)
+		samples.append(segment._data)
+	
+	seg = segments[0]
+	
+	p = pyaudio.PyAudio()
+	stream1 = p.open(format=p.get_format_from_width(seg.sample_width),
+		channels=seg.channels,
+		rate=seg.frame_rate,
+		output=True)
+	stream2 = p.open(format=p.get_format_from_width(seg.sample_width),
+		channels=seg.channels,
+		rate=seg.frame_rate,
+		output=True)
+	stream3 = p.open(format=p.get_format_from_width(seg.sample_width),
+		channels=seg.channels,
+		rate=seg.frame_rate,
+		output=True)
+	
+	# start = time.time()
+	# play_sound_thread(segments[0])
+	# print time.time() - start
+	# play_sound_thread(segments[1])
+	# print time.time() - start
+	# play_sound_thread(segments[2])
+	# return
+	# stream1.write(samples[0])
+	# stream2.write(samples[1])
+	# stream3.write(samples[2])
+	
+	# for x in range(len(segments)):
+		# stream.write(samples[x])
+	
+def synth():
+	start = time.time()
+	generators = []
+	segments = []
+	samples = []
+	lms = 100.0
+	ls = lms / 1000.0
+	overlap = 0
+	sleep_time = ls - overlap
+	for x in range(10):
+		# generator = Sine(500 + x)
+		generator = Triangle(400+x)
+		generators.append(generator)
+		# segments.append(generator.to_audio_segment(lms, 0.0)[int(lms*.5):int(lms*1.5)])
+		segment = generator.to_audio_segment(lms, 0.0)
+		segments.append(segment)
+		samples.append(segment._data)
+	print time.time() - start
+	
+	seg = segments[0]
+	
+	p = pyaudio.PyAudio()
+	stream = p.open(format=p.get_format_from_width(seg.sample_width),
+		channels=seg.channels,
+		rate=seg.frame_rate,
+		output=True)
+		
+		
+		
+	for x in range(len(segments)):
+		stream.write(samples[x])
+
+	# return 0
+	# for segment in segments:
+		# start = time.time()
+		# play_sound_thread(segment)
+		# diff = time.time() - start
+		# # print sleep_time - diff
+		# if (sleep_time - diff) < 0:
+			# print '!'
+		# else:
+			# time.sleep(sleep_time - diff)
+		
+	
+	
 	
 def main():
 	# sound1 = AudioSegment.from_file("C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\level_enter.wav", format="wav")
@@ -330,7 +422,9 @@ def main():
 		# octaves = x * .125
 		# print octaves
 		# pitch_test_pydub(octaves, False)
-	chord_test()
+	# chord_test()
+	# synth()
+	synth2()
 	
 	# raw()
 	# filter()

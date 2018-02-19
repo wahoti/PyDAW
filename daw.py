@@ -27,12 +27,15 @@ import copy
 
 import pickle
 
+from pydub.generators import *
+
 #whats next?
 
-#based on how many sounds are stacked it increases the delay time
-#figure out how to account for this
-#it may be neglible for amounts less than a lot of stacked sounds
-#maybe
+#UNDOCUMENTED SPICE
+#to the lab
+#then to the synth?
+#Signal Processing (compression, EQ, normalize, speed change - pydub.effects, pydub.scipy_effects)
+#Signal generators (Sine, Square, Sawtooth, Whitenoise, etc - pydub.generators)
 
 #more filters
 	#change pitch
@@ -46,10 +49,14 @@ import pickle
 
 #backlog
 
+#should probably do inheritance for the T classes
 #bar manipulation feels a little clunky - its prob fine for now tho
 #sound cut change? to save memory store length in ms or chunks instead of copying the segment data
 
 #notes
+
+#yield oh dang
+#https://stackoverflow.com/questions/231767/what-does-the-yield-keyword-do
 
 #bpm
 #time measure
@@ -426,79 +433,68 @@ class Tsetsoundset:
 class Tsynth:
 	def __init__(self):
 		self.name = 'synth'
-		
-		self.stop = False
-		
 		self.threads = []
-		
-		self.wavs = []
-		
-		self.sounds = [
-			[500, .1],
-			[500, .2],
-			[500, .3],
-			[500, .4]
-		]
-		self.bitrate = 16000
-		
-		self.generate_wav()
-		
 		p = PyAudio()
-		self.stream = p.open(format = p.get_format_from_width(1), 
-			channels = 1, 
-			rate = self.bitrate, 
-			output = True)
 		
-	def generate_wav(self):
-		self.wavs = []
-		for sound in self.sounds:
-			FREQUENCY = sound[0]
-			LENGTH = sound[1]
-			if FREQUENCY > self.bitrate:
-				# BITRATE = FREQUENCY+100#???
-				continue
-			NUMBEROFFRAMES = int(self.bitrate * LENGTH)
-			RESTFRAMES = NUMBEROFFRAMES % self.bitrate
-			WAVEDATA = ''    
-			for x in xrange(NUMBEROFFRAMES):
-				WAVEDATA = WAVEDATA+chr(int(math.sin(x/((self.bitrate/FREQUENCY)/math.pi))*127+128))    
-			for x in xrange(RESTFRAMES): 
-				WAVEDATA = WAVEDATA+chr(128)
-			self.wavs.append(WAVEDATA)
+		self.segments = {}
+		self.triangle = {}
+		self.sine = {}
+		self.pulse = {}
+		self.square = {}
+		self.sawtooth = {}
+		self.whitenoise = {}
+		
+		self.L = self.triangle
+		self.R = self.sine
+		
+		self.frequencies = [523.0, 329.63, 392.0]
+		lms = 10.0
+		for f in self.frequencies:
+			segment = Triangle(f).to_audio_segment(lms, 0.0)
+			self.triangle[f] = segment._data
+			self.sine[f] = Sine(f).to_audio_segment(lms, 0.0)._data
+			# self.pulse[f] = Pulse(f).to_audio_segment(lms, 0.0)
+			# self.square[f] = Square(f).to_audio_segment(lms, 0.0)
+			# self.sawtooth[f] = Sawtooth(f).to_audio_segment(lms, 0.0)
+			# self.whitenoise[f] = WhiteNoise(f).to_audio_segment(lms, 0.0)
+		
+		self.frame_rate = segment.frame_rate
+		
+		self.streams = []
+		self.last_stream = 0
+		for x in range(3):
+			self.streams.append(p.open(format = p.get_format_from_width(1), channels = 1, rate = self.frame_rate, output = True))
+	
+	def play_sound(self, sound, button):
+		if (self.last_stream + 1) >= len(self.streams):
+			self.last_stream = 0
+			self.streams[0].write(sound)
+		else:
+			s = self.last_stream + 1
+			self.last_stream = s
+			while controller.buttons[button]:
+				self.streams[s].write(sound)
+		return
+	
+	def play_sound_thread(self, f, LR, button):
+		if LR is 'L':
+			sound = self.L[f]
+		else:
+			sound = self.R[f]
+		t = threading.Thread(target=self.play_sound, args=[sound, button])
+		t.start()
+		return
 		
 	def display(self):
-		textPrint.log(screen, "synth")
-
-	def synth_thread(self, wav):
-		# while not self.stop:
-			# self.stream.write(self.wavs[wav])
-		# self.stop = False
-		winsound.PlaySound(r'C:\Users\wahed\Desktop\daw\pydaw\sounds\dragon_coin.wav', winsound.SND_ASYNC)
+		textPrint.log(screen, self.name)
 
 	def button_down(self, button):
-		# winsound.Beep(1500, 100)
-		# winsound.PlaySound('sounds\\bird.wav', winsound.SND_FILENAME)
-		
-		butt = 0
-		if button is 0:
-			butt = 0
-		elif button is 1:
-			butt = 1
-		elif button is 2:
-			butt = 2
-		elif button is 3:
-			butt = 3
-		
-		t = threading.Thread(target=self.synth_thread, args=[butt])
-		self.threads.append(t)
-		t.start()
+		print 'synth button down'
+		if button in range(len(self.frequencies)):
+			self.play_sound_thread(self.frequencies[button], 'L', button)
 		return 0
 		
 	def button_release(self, button):
-		print 'synth button release'
-		# winsound.PlaySound(r'C:\Users\wahed\Desktop\daw\pydaw\sounds\dragon_coin.wav', winsound.SND_ASYNC)
-		winsound.PlaySound(None, winsound.SND_PURGE)
-		# self.stop = True
 	
 		return 0
 
@@ -529,7 +525,7 @@ class Controller:
 		self.init_library()
 		self.init_audio_segments()
 		
-		self.modes = ['compose', 'cut', 'synth', 'setsoundset']
+		self.modes = ['compose', 'setsoundset', 'cut', 'synth']
 		self.mode_handlers = [Tcompose(), Tsetsoundset(), Tcut(), Tsynth()]
 		self.mode_index = 0
 		self.mode = self.modes[self.mode_index]
