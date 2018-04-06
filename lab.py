@@ -2,6 +2,7 @@ import pydub
 from pydub import AudioSegment
 from pydub.playback import play
 from pydub.generators import *
+from pydub.effects import *
 
 import math        #import needed modules
 import pyaudio     #sudo apt-get install python-pyaudio
@@ -407,7 +408,61 @@ def synth():
 			# time.sleep(sleep_time - diff)
 		
 	
+
+def additive_synth():
+	sound1 = AudioSegment.from_file("C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\omae.wav", format="wav")
+	# sound2 = AudioSegment.from_file("C:\\Users\\wahed\\Desktop\\daw\\pydaw\\boop329.63.wav", format="wav")
+	generator = Sine(329.63)
+	print 'len(sound1)', len(sound1)
 	
+	samples1 = sound1.get_array_of_samples()
+	print 'len(samples1)', len(samples1)
+	
+	sound2 = generator.to_audio_segment(len(sound1), 0.0)
+	# print 'len(sound2)', len(sound2)
+	
+	sound2 = AudioSegment.from_mono_audiosegments(sound2, sound2)
+	print 'len(sound2)', len(sound2)
+	
+	samples2 = sound2.get_array_of_samples()
+	print 'len(samples2)', len(samples2)
+	
+	if len(samples1) > len(samples2):
+		for x in range(len(samples1) - len(samples2)):
+			samples2.append(samples2[x])
+	
+	print 'len(samples2)', len(samples2)
+	
+	new_samples = np.add(samples1, samples2)
+	new_sound = sound1._spawn(samples2)
+	new_sound.export("C:\\Users\\wahed\\Desktop\\daw\\pydaw\\add.wav", format="wav")
+	play(new_sound)
+	
+	# f1 = np.fft.rfft(samples1)
+	# f2 = np.fft.rfft(samples2)
+	# f12 = np.add(f1, f2)
+	# n = np.fft.irfft(f12)
+	# new_samples_array = array.array(sound1.array_type, n)
+	return
+	
+def filters():
+	sound = AudioSegment.from_file("C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\omae.wav", format="wav")
+	print get_min_max_value(sound.sample_width * 8)
+	# _sound = normalize(sound)
+	# _sound = speedup(sound)
+	# _sound = compress_dynamic_range(sound)
+	# _sound = invert_phase(sound)
+	# _sound = invert_phase(sound)
+	# _sound = low_pass_filter(sound, 100)
+	# _sound = high_pass_filter(sound, 50)
+	_sound = pan(sound, -1)
+	
+	
+	play(_sound)
+	return
+	
+def sampler():
+	pass
 	
 def main():
 	# sound1 = AudioSegment.from_file("C:\\Users\\wahed\\Desktop\\daw\\pydaw\\sounds\\level_enter.wav", format="wav")
@@ -424,7 +479,9 @@ def main():
 		# pitch_test_pydub(octaves, False)
 	# chord_test()
 	# synth()
-	synth2()
+	# synth2()
+	# additive_synth()
+	filters()
 	
 	# raw()
 	# filter()

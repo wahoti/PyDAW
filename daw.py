@@ -31,6 +31,10 @@ from pydub.generators import *
 
 #whats next?
 
+#sampling tool
+#start with some of the default pydub functions in lab
+#then work out how the tool would be set up
+
 #synth evolution
 #modify timbre
 #filter - subtractive - block certain frequencies
@@ -42,7 +46,7 @@ from pydub.generators import *
 	#additive synthesis:
 	#multiplicative synthesis:
 
-#UNDOCUMENTED SPICE
+#UNDOCUMENTED
 #to the lab
 #then to the synth?
 #Signal Processing (compression, EQ, normalize, speed change - pydub.effects, pydub.scipy_effects)
@@ -400,6 +404,7 @@ class Tsetsoundset:
 	def display(self):
 		textPrint.log(screen, "setsoundset")
 		textPrint.log(screen, "listen? {}".format(self.listen))
+		textPrint.log(screen, "share button saves sound")
 		textPrint.log(screen, "selected_sound: {}".format(controller.library[self.sound_index]))
 		textPrint.log(screen, "sound_set {}:".format(controller.sound_set_index))
 		for x in range(6):
@@ -426,6 +431,8 @@ class Tsetsoundset:
 			self.next_sound()
 		elif button is 8:
 			controller.save_sound_set()
+		if button is 9:
+			self.record = not self.record
 		elif button is 13:
 			segment = controller.audio_segments[controller.library[self.sound_index]]
 			controller.play_sound_thread(segment, button)
@@ -499,7 +506,7 @@ class Tsynth:
 		while True:
 			for x in range(len(chunks)):
 				if not controller.buttons[button]:
-					break
+					return
 				stream.write(chunks[x]._data)
 			# stream.write(sound._data)
 		return
@@ -808,6 +815,8 @@ class Composition:
 					if sleep_time < 0:
 						print 'WARNING overhead throwing off clock', sleep_time, len(sounds)
 					else:
+						#busy waiting better?
+						#while clock something pass
 						time.sleep(sleep_time)
 					self.start = time.time()
 		return 0
