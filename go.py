@@ -14,6 +14,8 @@ from scipy.signal import butter, lfilter, freqz
 import matplotlib.pyplot as plt
 import array
 
+import IPython
+
 comp = Composition()
 lib = comp.library
 
@@ -35,6 +37,59 @@ lib = comp.library
 #2093.005
 #4186.009
 #8372.018
+
+def flatten_samp_chunks(samp_chunks):
+	samp = []
+	for chunk in samp_chunks:
+		for c in chunk:
+			samp.append(c)
+	return samp
+
+def flatten(bumpy):
+	#recursive function to flatten an arbitrarily nested array into a single dimensional array
+	flat_array = []
+	if len(bumpy) > 0:
+		for x in bumpy:
+			if isinstance(x, list):
+				flat_array += flatten(x)
+			else:
+				flat_array += [x]
+	return flat_array
+	
+def open(name):
+	path = os.getcwd() + "\\sounds\\" + name	
+	seg = AudioSegment.from_file(path, format="wav")
+	return seg
+
+def rando(name):
+	path = os.getcwd() + "\\sounds\\" + name	
+	seg = AudioSegment.from_file(path, format="wav")
+	
+	seg_chunks = np.array(make_chunks(seg, 100))
+	samp_chunks = []
+	for chunk in seg_chunks:
+		samp_chunks.append(chunk.get_array_of_samples())
+	
+	np.random.shuffle(samp_chunks)
+	new_samp = flatten_samp_chunks(samp_chunks)
+	
+	arr = array.array(seg.array_type, new_samp)
+	new_seg = seg._spawn(arr)
+	print len(new_seg)
+	return new_seg
+
+def cut_tool(name):
+	path = os.getcwd() + "\\sounds\\" + name
+	out_path = os.getcwd() + "\\cuts\\"
+	seg = AudioSegment.from_file(path, format="wav")
+	
+	samp = seg.get_array_of_samples()
+	#keyboard input
+	#chops in 100ms
+	#cycle through chops arrow keys
+	#space - play selected chop
+	#s - save chop
+	return
 
 def chop_save(name):
 	path = os.getcwd() + "\\sounds\\" + name
@@ -75,7 +130,9 @@ def test_filter():
 		
 
 def main():
-	test_filter()
+	# test_filter()
+	s = rando('roar.wav')
+	play(s)
 	return
 	
 if __name__ == "__main__":
