@@ -6,8 +6,8 @@ def main():
 	
 	
 	# a = Sine(220, 0, 0.1).out()
-	a = hello_audio(s)
-	
+	# a = hello_audio(s)
+	# a = hello_audio_plus(s)
 	
 	###################
 	s.start()
@@ -48,6 +48,27 @@ def server_start():
 	s.boot()
 	return s
 
+def hello_audio_plus(s):
+	# Drops the gain by 20 dB.
+	s.amp = 0.1
+
+	# Creates a sine wave as the source to process.
+	a = Sine()
+
+	# Passes the sine wave through an harmonizer.
+	hr = Harmonizer(a).out()
+
+	# Also through a chorus.
+	ch = Chorus(a).out()
+
+	# And through a frequency shifter.
+	sh = FreqShift(a).out()
+
+	return [hr, ch, sh]
+	# return sh
+	
+	# s.gui(locals())	
+	
 def hello_audio(s):
 	# Drops the gain by 20 dB.
 	s.amp = 0.1

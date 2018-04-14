@@ -36,6 +36,25 @@ lib = comp.library
 #4186.009
 #8372.018
 
+def chop_save(name):
+	path = os.getcwd() + "\\sounds\\" + name
+	out_path = os.getcwd() + "\\cuts\\"
+	try:
+		seg = AudioSegment.from_file(path, format="wav")
+	except Exception as e:
+		print e
+		return
+	segs = make_chunks(seg, 100)
+	try:
+		count = 0
+		for s in segs:
+			s.export(out_path + name.split('.')[0] + "_" + str(count) + ".wav", format="wav")
+			count += 1
+	except Exception as e:
+		print e
+		return
+	return segs
+
 def test_filter():
 
 	start = time.time()
