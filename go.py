@@ -8,6 +8,8 @@ from pydub.effects import *
 
 from composition import Sound
 from composition import Composition
+from composition import open
+from composition import cut_tool
 
 import numpy as np
 from scipy.signal import butter, lfilter, freqz
@@ -18,6 +20,9 @@ import IPython
 
 comp = Composition()
 lib = comp.library
+
+#make samp tool
+#make a beat
 
 #frequency limits/zones
 #16 to 32
@@ -55,11 +60,6 @@ def flatten(bumpy):
 			else:
 				flat_array += [x]
 	return flat_array
-	
-def open(name):
-	path = os.getcwd() + "\\sounds\\" + name	
-	seg = AudioSegment.from_file(path, format="wav")
-	return seg
 
 def rando(name):
 	path = os.getcwd() + "\\sounds\\" + name	
@@ -77,38 +77,6 @@ def rando(name):
 	new_seg = seg._spawn(arr)
 	print len(new_seg)
 	return new_seg
-
-def cut_tool(name):
-	path = os.getcwd() + "\\sounds\\" + name
-	out_path = os.getcwd() + "\\cuts\\"
-	seg = AudioSegment.from_file(path, format="wav")
-	
-	samp = seg.get_array_of_samples()
-	#keyboard input
-	#chops in 100ms
-	#cycle through chops arrow keys
-	#space - play selected chop
-	#s - save chop
-	return
-
-def chop_save(name):
-	path = os.getcwd() + "\\sounds\\" + name
-	out_path = os.getcwd() + "\\cuts\\"
-	try:
-		seg = AudioSegment.from_file(path, format="wav")
-	except Exception as e:
-		print e
-		return
-	segs = make_chunks(seg, 100)
-	try:
-		count = 0
-		for s in segs:
-			s.export(out_path + name.split('.')[0] + "_" + str(count) + ".wav", format="wav")
-			count += 1
-	except Exception as e:
-		print e
-		return
-	return segs
 
 def test_filter():
 
@@ -129,10 +97,23 @@ def test_filter():
 		low_pass_filter(sound.segment, octaves[c]).export(name, format="wav")
 		
 
+def test_input_int():
+	a = 100
+	while True:
+		data = input("Enter a number: ")
+		print data, type(data)
+		
 def main():
+	name = 'RNDYSVGE_frog_eyes.wav'
+	
+	cut_tool(name)
+	
+	# test_input_int()
+	
+	
 	# test_filter()
-	s = rando('roar.wav')
-	play(s)
+	# s = rando('roar.wav')
+	# play(s)
 	return
 	
 if __name__ == "__main__":

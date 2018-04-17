@@ -6,6 +6,180 @@ from pydub.playback import play
 from pydub.utils import make_chunks
 from pydub.effects import *
 
+from win32api import STD_INPUT_HANDLE
+from win32console import GetStdHandle, KEY_EVENT, ENABLE_ECHO_INPUT, ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT
+
+class KeyPoller():
+	def __init__(self):
+		#https://stackoverflow.com/questions/13207678/whats-the-simplest-way-of-detecting-keyboard-input-in-python-from-the-terminal
+		self.readHandle = GetStdHandle(STD_INPUT_HANDLE)
+		self.readHandle.SetConsoleMode(ENABLE_LINE_INPUT|ENABLE_ECHO_INPUT|ENABLE_PROCESSED_INPUT)
+
+		self.curEventLength = 0
+		self.curKeysLength = 0
+
+		self.capturedChars = []
+
+	def poll(self):
+		if not len(self.capturedChars) == 0:
+			return self.capturedChars.pop(0)
+
+		eventsPeek = self.readHandle.PeekConsoleInput(10000)
+
+		if len(eventsPeek) == 0:
+			return None
+
+		if not len(eventsPeek) == self.curEventLength:
+			for curEvent in eventsPeek[self.curEventLength:]:
+				if curEvent.EventType == KEY_EVENT:
+					if ord(curEvent.Char) == 0 or not curEvent.KeyDown:
+						pass
+					else:
+						curChar = str(curEvent.Char)
+						self.capturedChars.append(curChar)
+			self.curEventLength = len(eventsPeek)
+
+		if not len(self.capturedChars) == 0:
+			return self.capturedChars.pop(0)
+		else:
+			return None
+
+def test_input():
+	keyPoller = KeyPoller()
+	while True:
+		c = keyPoller.poll()
+		if not c is None:
+			if c == "c":
+				break
+			print c
+
+def open(name):
+	path = os.getcwd() + "\\sounds\\" + name	
+	seg = AudioSegment.from_file(path, format="wav")
+	return seg
+	
+def chop_save(name):
+	path = os.getcwd() + "\\sounds\\" + name
+	out_path = os.getcwd() + "\\cuts\\"
+	seg = open(path)
+	segs = make_chunks(seg, 100)
+	try:
+		count = 0
+		for s in segs:
+			s.export(out_path + name.split('.')[0] + "_" + str(count) + ".wav", format="wav")
+			count += 1
+	except Exception as e:
+		print e
+		return
+	return segs
+
+def cut_tool(name):
+	out_path = os.getcwd() + "\\cuts\\"
+	save_name = out_path + name.split('.')[0] + "_"
+	seg = open(name)
+	chunk_size = 100	
+	segs = make_chunks(seg, chunk_size)
+	selected_index = 0
+	rates = [1,10,50]
+	rate_index = 0
+	rate = rates[0]
+	custom = segs[0]
+	hold_custom = False
+	
+	print 'a: left'
+	print 'd: right'
+	print 'r: rate'
+	print 'y: new chunk size'
+	print 't: custom chunk'
+	print 'p: play'
+	print 'k: save'
+	print 'c: quit'
+	print 'index: ', selected_index, '\trate: ', rate
+	
+	keyPoller = KeyPoller()
+	while True:
+		c = keyPoller.poll()
+		if not c is None:
+			if c == "c":
+				break
+			elif c == "a":
+				hold_custom = False
+				if selected_index - rate < 0:
+					selected_index = len(segs)-1
+				else:
+					selected_index -= rate
+			elif c == "d":
+				hold_custom = False
+				if selected_index + rate >= len(segs):
+					selected_index = 0
+				else:
+					selected_index += rate
+			elif c == "r":
+				if rate_index + 1 >= len(rates):
+					rate_index = 0
+				else:
+					rate_index += 1
+				rate = rates[rate_index]
+			elif c == "p":
+				if(hold_custom):
+					play(custom)
+				else:
+					play(segs[selected_index])
+					
+			elif c == "k":
+				if(hold_custom):
+					custom.export(save_name + str(start) + '-' + str(end) + ".wav", format="wav")
+					print 'saved', start, '-', end
+				else:
+					segs[selected_index].export(save_name + str(selected_index) + ".wav", format="wav")
+					print 'saved', selected_index 
+			elif c == "y":
+				try:
+					data = input("Enter a chunk size (ms): ")
+				except Exception as e:
+					print "input error"
+					break
+				print 'making', data, 'ms chunks...'
+				chunk_size = data
+				segs = make_chunks(seg, chunk_size)
+				selected_index = 0
+			elif c == "t":
+				try:
+					start = input("Enter start location (ms): ")
+				except Exception as e:
+					print "input error"
+					break
+				if(start < 0 or start > len(seg)):
+					print 'value error - len(seg) =', len(seg)
+					break
+				try:
+					end = input("Enter end location (ms): ")
+				except Exception as e:
+					print "input error"
+					break
+				if(end < 0 or end > len(seg) or end <= start):
+					print "value error - len(seg) =", len(seg)
+					break
+				custom = seg[start:end]
+				hold_custom = True
+				
+			elif c == "h":
+				print 'a: left'
+				print 'd: right'
+				print 'r: rate'
+				print 'y: new chunk size'
+				print 't: custom chunk'
+				print 'p: play'
+				print 'k: save'
+				print 'c: quit'
+				
+			print 'index: ', selected_index, '\trate: ', rate, '\tlocation(ms)', selected_index*chunk_size
+	
+	#so like print current location in ms
+	#print button to 
+	#get a button to make a chunk that is current location + input number
+	return
+	
 class Sound:
 	def __init__(self, name, samples, segments):
 		self.name = name
